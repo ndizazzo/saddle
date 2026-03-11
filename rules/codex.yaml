@@ -1,0 +1,26 @@
+tool: codex
+label: Codex
+binary:
+  which: codex
+  paths:
+    darwin: /Applications/Codex.app
+home: ~/.codex
+enabled: true
+
+mappings:
+  - type: skills
+    source: skills
+    target: skills
+    itemType: skill
+  - type: directory
+    source: agents
+    target: agents
+    itemType: agent
+  - type: directory
+    source: commands
+    target: commands
+    itemType: command
+  - type: file
+    source: agents/codex/AGENTS.md
+    target: AGENTS.md
+    itemType: root

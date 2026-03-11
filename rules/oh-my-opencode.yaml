@@ -1,0 +1,16 @@
+tool: oh-my-opencode
+label: Oh My Opencode
+binary: ""
+home: ~/.config/opencode
+enabled: true
+
+mappings:
+  - type: file
+    source: oh-my-opencode/oh-my-opencode.json.openai
+    target: oh-my-opencode.json
+  - type: file
+    source: oh-my-opencode/oh-my-opencode.json.claude
+    target: oh-my-opencode.json
+  - type: file
+    source: oh-my-opencode/oh-my-opencode.json.copilot
+    target: oh-my-opencode.json

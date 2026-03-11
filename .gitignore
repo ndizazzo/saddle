@@ -1,0 +1,20 @@
+node_modules/
+.husky/_/
+
+# AI agent session data
+.sisyphus/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime / temp
+*.tmp
+*.bak.*
+coverage/
+.nyc_output/

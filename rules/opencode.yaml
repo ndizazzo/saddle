@@ -1,0 +1,27 @@
+tool: opencode
+label: OpenCode
+binary: opencode
+home: ~/.config/opencode
+enabled: true
+
+mappings:
+  - type: file
+    source: agents/opencode/AGENTS.md
+    target: AGENTS.md
+    itemType: root
+  - type: directory
+    source: opencode
+    target: .
+    itemType: config
+  - type: directory
+    source: agents
+    target: agents
+    itemType: agent
+  - type: skills
+    source: skills
+    target: skills
+    itemType: skill
+  - type: directory
+    source: commands
+    target: commands
+    itemType: command
