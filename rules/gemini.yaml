@@ -1,0 +1,22 @@
+tool: gemini
+label: Gemini
+binary: gemini
+home: ~/.gemini
+enabled: true
+
+mappings:
+  - type: file
+    source: agents/gemini/GEMINI.md
+    target: GEMINI.md
+  - type: directory
+    source: configurations/gemini
+    target: .
+  - type: directory
+    source: agents
+    target: agents
+  - type: skills
+    source: skills
+    target: skills
+  - type: directory
+    source: commands
+    target: commands

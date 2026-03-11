@@ -1,0 +1,16 @@
+tool: copilot
+label: Copilot
+binary: gh
+home: ~/.copilot
+enabled: true
+
+mappings:
+  - type: skills
+    source: skills
+    target: skills
+  - type: directory
+    source: agents
+    target: agents
+  - type: directory
+    source: commands
+    target: commands

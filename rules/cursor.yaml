@@ -1,0 +1,19 @@
+tool: cursor
+label: Cursor
+binary:
+  which: cursor
+  paths:
+    darwin: /Applications/Cursor.app
+home: ~/.cursor
+enabled: true
+
+mappings:
+  - type: skills
+    source: skills
+    target: skills
+  - type: directory
+    source: agents
+    target: agents
+  - type: directory
+    source: commands
+    target: commands

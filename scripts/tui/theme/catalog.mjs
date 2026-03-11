@@ -1,0 +1,25 @@
+export const palette = {
+  canvas: "#01060b",
+  chrome: "#131820",
+  chromeSoft: "#1a212b",
+  panel: "#020a12",
+  panelSoft: "#07111c",
+  panelRaised: "#081521",
+  cyan: "#79d9ff",
+  cyanBright: "#b5efff",
+  cyanSoft: "#4ea6ca",
+  blue: "#7f90a4",
+  green: "#8ed2a0",
+  magenta: "#87c8de",
+  yellow: "#d8c06f",
+  orange: "#d69045",
+  red: "#cb7271",
+  gray: "#8592a3",
+  graySoft: "#667284",
+  line: "#254054",
+  lineBright: "#3c708f",
+  black: "#041019",
+  white: "#dce6f2",
+};
+
+

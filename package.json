@@ -1,0 +1,26 @@
+{
+  "name": "ai-config",
+  "private": true,
+  "bin": {
+    "ai-config": "./bin/ai-config.js"
+  },
+  "scripts": {
+    "lint": "npm run lint:agents",
+    "lint:agents": "bash ./scripts/agent-lint.sh",
+    "setup": "node ./bin/ai-config.js",
+    "test": "node --test tests/load-config.test.js tests/install-core.test.js tests/format.test.mjs",
+    "prepare": "husky"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  },
+  "dependencies": {
+    "@inkjs/ui": "^2.0.0",
+    "ink": "^6.8.0",
+    "react": "^19.2.4",
+    "yaml": "^2.8.2"
+  }
+}
