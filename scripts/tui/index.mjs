@@ -3,8 +3,7 @@ import { render } from "ink";
 import { ThemeProvider } from "@inkjs/ui";
 import { uiTheme } from "./theme/index.mjs";
 import { InstallerApp } from "./App.mjs";
-
-const h = React.createElement;
+import { h } from "./ui/react-helpers.mjs";
 
 function createForcedColorStdout(stdout) {
   return new Proxy(stdout, {

@@ -112,12 +112,6 @@ function loadRules() {
   return rules;
 }
 
-let _configError = null;
-
-function getConfigError() {
-  return _configError;
-}
-
 function writeDefaultConfig() {
   const defaultObj = {
     sourceRoot: DEFAULT_SOURCE_ROOT,
@@ -130,13 +124,14 @@ function writeDefaultConfig() {
 
 function loadConfig(fallbackSourceRoot) {
   let parsed = {};
+  let configError = null;
 
   try {
     const raw = fs.readFileSync(CONFIG_PATH, "utf8");
     try {
       parsed = parse(raw) || {};
     } catch (yamlErr) {
-      _configError = yamlErr.message || String(yamlErr);
+      configError = yamlErr.message || String(yamlErr);
     }
   } catch (err) {
     if (err.code === "ENOENT") {
@@ -148,7 +143,7 @@ function loadConfig(fallbackSourceRoot) {
   const ignore = buildIgnore(Array.isArray(parsed.ignore) ? parsed.ignore : []);
   const rules = loadRules();
 
-  return { sourceRoot, ignore, rules, expandHome };
+  return { sourceRoot, ignore, rules, expandHome, configError };
 }
 
 function writeSourceRoot(newPath) {
@@ -162,4 +157,4 @@ function writeSourceRoot(newPath) {
   fs.writeFileSync(CONFIG_PATH, stringify(parsed, { lineWidth: 120 }), "utf8");
 }
 
-module.exports = { loadConfig, loadRules, writeSourceRoot, writeDefaultConfig, seedDefaultRules, getConfigError, CONFIG_PATH, CONFIG_DIR, RULES_DIR, DEFAULT_SOURCE_ROOT, BUNDLED_RULES_DIR };
+module.exports = { loadConfig, loadRules, writeSourceRoot, writeDefaultConfig, seedDefaultRules, CONFIG_PATH, CONFIG_DIR, RULES_DIR, DEFAULT_SOURCE_ROOT, BUNDLED_RULES_DIR };

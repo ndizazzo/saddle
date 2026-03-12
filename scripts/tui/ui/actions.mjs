@@ -1,11 +1,9 @@
-import React from "react";
 import path from "path";
 import { Box, Text } from "ink";
 import { palette } from "../theme/catalog.mjs";
 import { theme } from "../theme/index.mjs";
 import { ShortPath, TerminalTag } from "./primitives.mjs";
-
-const h = React.createElement;
+import { h } from "./react-helpers.mjs";
 
 const ACTION_COL = 9;
 const VIA_COL    = 10;

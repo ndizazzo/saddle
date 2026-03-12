@@ -5,8 +5,7 @@ import { theme } from "./theme/index.mjs";
 import { groupByTool } from "./ui/format.mjs";
 import { ChromeBar, FooterBar } from "./ui/chrome.mjs";
 import { SelectionScreen, ConfirmScreen, PathEditOverlay, RunScreen, LoadingScreen, DiffOverlay } from "./components/index.mjs";
-
-const h = React.createElement;
+import { h } from "./ui/react-helpers.mjs";
 
 export function InstallerApp({ profiles, options, initialSelectedIds, runInstallation, inspectProfile, buildInspectionCacheAsync, sourceRoot, configPath, writeSourceRoot, onFinish }) {
   const { exit } = useApp();

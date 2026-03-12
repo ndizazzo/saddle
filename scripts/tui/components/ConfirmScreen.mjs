@@ -5,8 +5,7 @@ import { palette } from "../theme/catalog.mjs";
 import { theme } from "../theme/index.mjs";
 import { Frame, TerminalTag } from "../ui/primitives.mjs";
 import { actionKindMeta, itemTypeMeta } from "../ui/actions.mjs";
-
-const h = React.createElement;
+import { h } from "../ui/react-helpers.mjs";
 
 export function ConfirmScreen({ selectedProfiles, inspectProfile, options, layout, canApply }) {
   const inspection = useMemo(() => {

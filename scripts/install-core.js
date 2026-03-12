@@ -9,7 +9,16 @@ const { spawnSync } = require("child_process");
 const { loadConfig } = require("./load-config");
 
 const defaultRepoRoot = path.resolve(__dirname, "..");
-const config = loadConfig(defaultRepoRoot);
+let _config = null;
+
+function getConfig() {
+  if (!_config) _config = loadConfig(defaultRepoRoot);
+  return _config;
+}
+
+function getDefaultRepoRoot() {
+  return getConfig().sourceRoot;
+}
 
 function commandExists(name) {
   const result = spawnSync("which", [name], { encoding: "utf8", stdio: "pipe" });
@@ -21,13 +30,14 @@ function binaryDetected(binary) {
   if (binary.which && commandExists(binary.which)) return true;
   const platformPath = binary.paths && binary.paths[process.platform];
   if (platformPath) {
-    const expanded = config.expandHome(platformPath);
+    const expanded = getConfig().expandHome(platformPath);
     if (expanded && fileExists(expanded)) return true;
   }
   return false;
 }
 
 function detectInstalledTools() {
+  const config = getConfig();
   const detection = {};
 
   for (const rule of config.rules) {
@@ -86,8 +96,8 @@ function inferItemType(mapping) {
 }
 
 function isNonConfigFile(name) {
-  if (config.ignore.names.has(name)) return true;
-  return config.ignore.globRegexes.some((re) => re.test(name));
+  if (getConfig().ignore.names.has(name)) return true;
+  return getConfig().ignore.globRegexes.some((re) => re.test(name));
 }
 
 function hashFile(filePath) {
@@ -213,11 +223,11 @@ function resolveMappingActions(mapping, repoRoot, targetHome) {
   return [];
 }
 
-function discoverProfiles(repoRoot = config.sourceRoot, detection = null) {
+function discoverProfiles(repoRoot = getDefaultRepoRoot(), detection = null) {
   const profiles = [];
 
-  for (const rule of config.rules) {
-    const targetHome = config.expandHome(rule.home);
+  for (const rule of getConfig().rules) {
+    const targetHome = getConfig().expandHome(rule.home);
     if (!targetHome) continue;
 
     const isInstalled = detection ? (detection[rule.name] !== false) : true;
@@ -664,7 +674,7 @@ module.exports = {
   buildInspectionCache,
   buildInspectionCacheAsync,
   contentMatches,
-  defaultRepoRoot: config.sourceRoot,
+  getDefaultRepoRoot,
   detectInstalledTools,
   discoverProfiles,
   fileExists,

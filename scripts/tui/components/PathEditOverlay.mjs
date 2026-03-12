@@ -2,8 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { TextInput } from "@inkjs/ui";
 import { theme } from "../theme/index.mjs";
-
-const h = React.createElement;
+import { h } from "../ui/react-helpers.mjs";
 
 export function PathEditOverlay({ currentValue, onSubmit, onCancel, layout }) {
   const { stdout } = useStdout();

@@ -5,8 +5,7 @@ import { palette } from "../theme/catalog.mjs";
 import { theme } from "../theme/index.mjs";
 import { Frame, ShortLabel, ShortPath, TerminalTag } from "../ui/primitives.mjs";
 import { ActionLine, ActionLineHeader, actionKindMeta, itemTypeMeta } from "../ui/actions.mjs";
-
-const h = React.createElement;
+import { h } from "../ui/react-helpers.mjs";
 
 export function ToolList({ toolGroups, depth, toolIndex, selectedActionKeys, focusedPane, inspectProfile }) {
   const groupSelectionState = (group) => {

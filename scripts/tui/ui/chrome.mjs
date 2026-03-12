@@ -1,9 +1,7 @@
-import React from "react";
 import { Box, Text } from "ink";
 import { theme } from "../theme/index.mjs";
 import { TerminalTag } from "./primitives.mjs";
-
-const h = React.createElement;
+import { h } from "./react-helpers.mjs";
 
 export function ChromeBar() {
   return h(

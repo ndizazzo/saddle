@@ -427,27 +427,26 @@ describe("load-config", () => {
       assert.strictEqual(config.sourceRoot, expected);
     });
 
-    it("stores the parse error message via getConfigError()", () => {
+    it("returns the parse error message on config.configError", () => {
       mkfile(configPath, "key: [unclosed bracket");
-      const { loadConfig, getConfigError } = fresh();
-      loadConfig("/fallback");
-      const err = getConfigError();
+      const { loadConfig } = fresh();
+      const { configError: err } = loadConfig("/fallback");
       assert.ok(err !== null, "expected a config error to be stored");
       assert.strictEqual(typeof err, "string");
       assert.ok(err.length > 0, "error message should be non-empty");
     });
 
-    it("getConfigError() returns null when YAML is valid", () => {
+    it("returns null config.configError when YAML is valid", () => {
       mkfile(configPath, "sourceRoot: /s\nignore: []\n");
-      const { loadConfig, getConfigError } = fresh();
-      loadConfig("/fallback");
-      assert.strictEqual(getConfigError(), null);
+      const { loadConfig } = fresh();
+      const { configError } = loadConfig("/fallback");
+      assert.strictEqual(configError, null);
     });
 
-    it("getConfigError() returns null when config file is absent", () => {
-      const { loadConfig, getConfigError } = fresh();
-      loadConfig("/fallback");
-      assert.strictEqual(getConfigError(), null);
+    it("returns null config.configError when config file is absent", () => {
+      const { loadConfig } = fresh();
+      const { configError } = loadConfig("/fallback");
+      assert.strictEqual(configError, null);
     });
   });
 

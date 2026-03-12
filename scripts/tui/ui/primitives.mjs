@@ -1,9 +1,7 @@
-import React from "react";
 import { Box, Text } from "ink";
 import { palette } from "../theme/catalog.mjs";
 import { theme } from "../theme/index.mjs";
-
-const h = React.createElement;
+import { h } from "./react-helpers.mjs";
 
 export function Frame({ title, color = "cyan", focused, children, ...boxProps }) {
   const borderColor = focused === true

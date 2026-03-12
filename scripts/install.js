@@ -6,7 +6,7 @@ const fs = require("fs");
 const readline = require("readline/promises");
 const {
   buildInspectionCacheAsync,
-  defaultRepoRoot,
+  getDefaultRepoRoot,
   detectInstalledTools,
   discoverProfiles,
   inspectProfile,
@@ -15,7 +15,7 @@ const {
   printUsage,
   runInstallation,
 } = require("./install-core.js");
-const { CONFIG_PATH, writeSourceRoot, writeDefaultConfig, getConfigError } = require("./load-config.js");
+const { CONFIG_PATH, loadConfig, writeSourceRoot, writeDefaultConfig } = require("./load-config.js");
 
 async function handleInvalidConfig(configError) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -152,7 +152,8 @@ async function runPlainInstaller({ profiles, options, initialSelectedIds }) {
 }
 
 async function main(argv) {
-  const configError = getConfigError();
+  const config = loadConfig(getDefaultRepoRoot());
+  const { configError } = config;
   if (configError) {
     const choice = await handleInvalidConfig(configError);
     if (choice === "exit") {
@@ -194,7 +195,7 @@ async function main(argv) {
       runInstallation,
       inspectProfile,
       buildInspectionCacheAsync,
-      sourceRoot: defaultRepoRoot,
+      sourceRoot: getDefaultRepoRoot(),
       configPath: CONFIG_PATH,
       writeSourceRoot,
     });

@@ -3,8 +3,7 @@ import { Box, Newline, Text } from "ink";
 import { Alert, ConfirmInput, ProgressBar, Spinner, StatusMessage } from "@inkjs/ui";
 import { theme } from "../theme/index.mjs";
 import { Frame, ShortLabel, TerminalTag } from "../ui/primitives.mjs";
-
-const h = React.createElement;
+import { h } from "../ui/react-helpers.mjs";
 
 export function SummaryBar({ options, selectedProfiles }) {
   return h(

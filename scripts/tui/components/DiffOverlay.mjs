@@ -3,8 +3,7 @@ import { spawnSync } from "child_process";
 import { Box, Text, useInput, useStdout } from "ink";
 import { palette } from "../theme/catalog.mjs";
 import { theme } from "../theme/index.mjs";
-
-const h = React.createElement;
+import { h } from "../ui/react-helpers.mjs";
 
 function classifyLine(line) {
   if (line.startsWith("--- ") || line.startsWith("+++ ")) {

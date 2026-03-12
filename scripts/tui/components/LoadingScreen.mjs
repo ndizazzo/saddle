@@ -1,12 +1,9 @@
 import React from "react";
-import os from "os";
-import path from "path";
 import { Box, Text } from "ink";
 import { ProgressBar } from "@inkjs/ui";
 import { palette } from "../theme/catalog.mjs";
 import { theme } from "../theme/index.mjs";
-
-const h = React.createElement;
+import { h, contractHome } from "../ui/react-helpers.mjs";
 
 const LOGO_RAW = [
   "   _______   ___  ___  __   ____ ",
@@ -16,16 +13,6 @@ const LOGO_RAW = [
 ];
 const LOGO_WIDTH = Math.max(...LOGO_RAW.map((l) => l.length));
 const LOGO_LINES = LOGO_RAW.map((l) => l.padEnd(LOGO_WIDTH));
-
-const HOME = os.homedir();
-
-function contractHome(p) {
-  if (typeof p !== "string" || !p) return p;
-  if (p === HOME || p.startsWith(HOME + path.sep)) {
-    return "~" + p.slice(HOME.length);
-  }
-  return p;
-}
 
 export function LoadingScreen({ scanProgress, totalHeight }) {
   const { done, total, current } = scanProgress;
