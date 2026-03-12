@@ -43,3 +43,27 @@
 - New boolean flags need 4 tests each: default false, flag=true, combined (no error), combined other order
 - Also update the "all-false defaults" test to include the new fields (strict equality check fails otherwise)
 - 6 new tests added; total went from 147 → 153
+
+## Task: Lockfile (writeLockfile/readLockfile) — 2026-03-12
+
+- `CONFIG_DIR` is exported from `load-config.js` — already available, just needed adding to the destructure in `install-core.js`'s require
+- `install-core.js` uses `require()` (CJS) — pattern: add import, add functions before `module.exports`, extend exports object
+- `runPlainInstaller` in `install.js` needed `sourceRoot` threaded in from `main()` via argument; `selectedProfiles` was already in closure scope for the `onEvent` handler
+- Dry-run guard: check `options.dryRun` in the `session-complete` branch (already inside `else` block for non-dry-run)
+- Error guard: `event.summary.errors === 0` inside the `session-complete` handler
+- `writeLockfile` catches filesystem errors and warns to stderr rather than throwing
+
+## Task: --uninstall CLI mode — 2026-03-12
+
+- `parseArgs` accepts new mode flags with the existing boolean pattern and no downstream changes needed for option plumbing.
+- `runUninstall(options)` belongs in `install-core.js` next to lockfile helpers so `readLockfile()` and shared path helpers are reused.
+- Symlink safety check should resolve relative `readlinkSync()` output against `path.dirname(target)` and only remove links that canonicalize under `sourceRoot`.
+- Use `fs.unlinkSync()` for symlink deletion; do not call `fs.rmSync()` for uninstall flow.
+
+## Task: --check mode for CLI (Task 14)
+
+- `discoverProfiles()` uses internal `getConfig()` singleton — no need to pass config fields as params; just call `discoverProfiles()` with no args for check mode
+- `runCheck(options, config)` signature keeps `config` for API consistency even though `discoverProfiles()` doesn't use it
+- The file had already evolved past the plan's line numbers (e.g. `--uninstall` was added before this task); always re-read files before editing
+- `process.exit()` is called inside `runCheck`, so the `return` after `await runCheck(...)` in `install.js` is defensive only
+- Pattern: new CLI modes are dispatched in `main()` in `install.js` after `options.listOnly` / `options.uninstall` blocks

@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
-const { loadConfig } = require("./load-config");
+const { loadConfig, CONFIG_DIR } = require("./load-config");
 
 const defaultRepoRoot = path.resolve(__dirname, "..");
 let _config = null;
@@ -267,9 +267,11 @@ function discoverProfiles(repoRoot = getDefaultRepoRoot(), detection = null) {
 function parseArgs(argv) {
   const options = {
     dryRun: false,
+    uninstall: false,
     assumeYes: false,
     selectAll: false,
     listOnly: false,
+    check: false,
     profileIds: null,
     help: false,
     verbose: false,
@@ -285,6 +287,11 @@ function parseArgs(argv) {
 
     if (arg === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+
+    if (arg === "--uninstall") {
+      options.uninstall = true;
       continue;
     }
 
@@ -318,6 +325,11 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === "--check") {
+      options.check = true;
+      continue;
+    }
+
     if (arg === "--profile") {
       const value = argv[index + 1];
       if (!value) {
@@ -340,16 +352,18 @@ function parseArgs(argv) {
 }
 
 function printUsage(profiles) {
-  console.log("Usage: ai-config [--dry-run] [--yes] [--all] [--profile id1,id2] [--list] [--verbose] [--quiet]");
+  console.log("Usage: ai-config [--dry-run] [--uninstall] [--check] [--yes] [--all] [--profile id1,id2] [--list] [--verbose] [--quiet]");
   console.log("");
   console.log("Interactive Ink UI by default when running in a TTY.");
   console.log("");
   console.log("Flags:");
   console.log("  --dry-run    Preview changes without writing to disk");
+  console.log("  --uninstall  Remove installed symlinks recorded in lockfile");
   console.log("  --yes        Auto-confirm replacements without prompting");
   console.log("  --all        Select all profiles");
   console.log("  --profile    Comma-separated list of profile IDs to apply");
   console.log("  --list       List available profiles and exit");
+  console.log("  --check      Inspect installed symlinks and exit 0 if in sync, 1 if out of sync");
   console.log("  --verbose    Show extra detail (source paths, symlink targets) on stderr");
   console.log("  --quiet      Suppress ok/link/skip/mkdir output; show only errors and summary");
   console.log("");
@@ -648,6 +662,158 @@ async function runInstallation({
   return summary;
 }
 
+function writeLockfile(selectedProfiles, sourceRoot) {
+  const links = [];
+  for (const profile of selectedProfiles) {
+    for (const action of profile.actions) {
+      links.push({
+        source: action.source,
+        target: action.target,
+        profileId: profile.id,
+        tool: profile.tool,
+      });
+    }
+  }
+  const lockfile = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    sourceRoot,
+    links,
+  };
+  const lockfilePath = path.join(CONFIG_DIR, "installed.json");
+  try {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(lockfilePath, JSON.stringify(lockfile, null, 2) + "\n", "utf8");
+  } catch (err) {
+    process.stderr.write(`Warning: could not write lockfile: ${err.message}\n`);
+  }
+}
+
+function readLockfile() {
+  const lockfilePath = path.join(CONFIG_DIR, "installed.json");
+  try {
+    const content = fs.readFileSync(lockfilePath, "utf8");
+    return JSON.parse(content);
+  } catch (err) {
+    return null;
+  }
+}
+
+async function runUninstall(options) {
+  const { dryRun, profileIds } = options;
+  const lockfile = readLockfile();
+
+  if (!lockfile) {
+    process.stderr.write("Error: no lockfile found. Run the installer first.\n");
+    process.exit(1);
+  }
+
+  const sourceRoot = lockfile.sourceRoot;
+  let links = lockfile.links;
+
+  if (profileIds && profileIds.length > 0) {
+    links = links.filter((link) => profileIds.includes(link.profileId));
+  }
+
+  let removed = 0;
+  let skipped = 0;
+  let missing = 0;
+
+  for (const link of links) {
+    const { target } = link;
+
+    let stats;
+    try {
+      stats = fs.lstatSync(target);
+    } catch {
+      missing += 1;
+      if (!options.quiet) process.stdout.write(`missing  ${target}\n`);
+      continue;
+    }
+
+    if (!stats.isSymbolicLink()) {
+      skipped += 1;
+      if (!options.quiet) process.stdout.write(`skip     ${target} (not a symlink)\n`);
+      continue;
+    }
+
+    let linkDest;
+    try {
+      linkDest = fs.readlinkSync(target);
+      if (!path.isAbsolute(linkDest)) {
+        linkDest = path.resolve(path.dirname(target), linkDest);
+      }
+      linkDest = safeCanonicalPath(linkDest) || linkDest;
+    } catch {
+      skipped += 1;
+      if (!options.quiet) process.stdout.write(`skip     ${target} (cannot read symlink)\n`);
+      continue;
+    }
+
+    if (!(linkDest === sourceRoot || linkDest.startsWith(`${sourceRoot}${path.sep}`))) {
+      skipped += 1;
+      if (!options.quiet) process.stdout.write(`skip     ${target} (points outside sourceRoot)\n`);
+      continue;
+    }
+
+    if (dryRun) {
+      if (!options.quiet) process.stdout.write(`would remove  ${target}\n`);
+      removed += 1;
+      continue;
+    }
+
+    fs.unlinkSync(target);
+    removed += 1;
+    if (!options.quiet) process.stdout.write(`removed  ${target}\n`);
+  }
+
+  process.stdout.write(`\nUninstall complete: ${removed} removed, ${skipped} skipped, ${missing} missing\n`);
+}
+
+async function runCheck(options, config) {
+  const lockfile = readLockfile();
+
+  let linksToCheck;
+
+  if (lockfile) {
+    linksToCheck = lockfile.links;
+    if (options.profileIds && options.profileIds.length > 0) {
+      linksToCheck = linksToCheck.filter((l) => options.profileIds.includes(l.profileId));
+    }
+  } else {
+    const profiles = discoverProfiles();
+    linksToCheck = [];
+    for (const profile of profiles) {
+      for (const action of profile.actions) {
+        linksToCheck.push({
+          source: action.source,
+          target: action.target,
+          profileId: profile.id,
+          tool: profile.tool,
+        });
+      }
+    }
+  }
+
+  let inSync = 0;
+  let outOfSync = 0;
+
+  for (const link of linksToCheck) {
+    const result = inspectAction({ source: link.source, target: link.target });
+    if (result.kind === "already-linked") {
+      inSync += 1;
+    } else {
+      outOfSync += 1;
+      if (options.verbose) {
+        process.stderr.write(`out-of-sync: ${link.target} (${result.kind})\n`);
+      }
+    }
+  }
+
+  process.stdout.write(`${inSync} in sync, ${outOfSync} out of sync\n`);
+  process.exit(outOfSync > 0 ? 1 : 0);
+}
+
 module.exports = {
   binaryDetected,
   buildInspectionCache,
@@ -662,5 +828,9 @@ module.exports = {
   previewDiff,
   printProfiles,
   printUsage,
+  readLockfile,
+  runCheck,
+  runUninstall,
   runInstallation,
+  writeLockfile,
 };

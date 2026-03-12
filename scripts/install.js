@@ -13,7 +13,10 @@ const {
   parseArgs,
   printProfiles,
   printUsage,
+  runCheck,
+  runUninstall,
   runInstallation,
+  writeLockfile,
 } = require("./install-core.js");
 const { CONFIG_PATH, loadConfig, writeSourceRoot, writeDefaultConfig } = require("./load-config.js");
 
@@ -43,7 +46,7 @@ async function handleInvalidConfig(configError) {
   });
 }
 
-async function runPlainInstaller({ profiles, options, initialSelectedIds }) {
+async function runPlainInstaller({ profiles, options, initialSelectedIds, sourceRoot }) {
   const selectedIds = initialSelectedIds || (() => {
     if (!process.stdin.isTTY) {
       throw new Error("No profile selection provided. Re-run with --all or --profile in non-interactive mode.");
@@ -158,6 +161,9 @@ async function runPlainInstaller({ profiles, options, initialSelectedIds }) {
             console.log("Dry run only. No filesystem changes were made.");
           } else {
             console.log("Opencode still manages its own node_modules under ~/.config/opencode.");
+            if (event.summary.errors === 0) {
+              writeLockfile(selectedProfiles, sourceRoot);
+            }
           }
         }
       },
@@ -199,6 +205,16 @@ async function main(argv) {
     return;
   }
 
+  if (options.uninstall) {
+    await runUninstall(options);
+    return;
+  }
+
+  if (options.check) {
+    await runCheck(options, config);
+    return;
+  }
+
   const initialSelectedIds = options.profileIds
     ? options.profileIds
     : options.selectAll
@@ -221,7 +237,7 @@ async function main(argv) {
     return;
   }
 
-  await runPlainInstaller({ profiles, options, initialSelectedIds });
+  await runPlainInstaller({ profiles, options, initialSelectedIds, sourceRoot });
 }
 
 module.exports = { main };
