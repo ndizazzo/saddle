@@ -87,6 +87,7 @@ function relativeTarget(sourcePath, targetPath) {
 }
 
 function inferItemType(mapping) {
+  if (mapping.itemType) return mapping.itemType;
   if (mapping.type === "skills") return "skill";
   const src = mapping.source.replace(/\\/g, "/");
   const root = src.split("/")[0];
@@ -271,6 +272,8 @@ function parseArgs(argv) {
     listOnly: false,
     profileIds: null,
     help: false,
+    verbose: false,
+    quiet: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -305,6 +308,16 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === "--verbose") {
+      options.verbose = true;
+      continue;
+    }
+
+    if (arg === "--quiet") {
+      options.quiet = true;
+      continue;
+    }
+
     if (arg === "--profile") {
       const value = argv[index + 1];
       if (!value) {
@@ -327,9 +340,18 @@ function parseArgs(argv) {
 }
 
 function printUsage(profiles) {
-  console.log("Usage: ai-config [--dry-run] [--yes] [--all] [--profile id1,id2] [--list]");
+  console.log("Usage: ai-config [--dry-run] [--yes] [--all] [--profile id1,id2] [--list] [--verbose] [--quiet]");
   console.log("");
   console.log("Interactive Ink UI by default when running in a TTY.");
+  console.log("");
+  console.log("Flags:");
+  console.log("  --dry-run    Preview changes without writing to disk");
+  console.log("  --yes        Auto-confirm replacements without prompting");
+  console.log("  --all        Select all profiles");
+  console.log("  --profile    Comma-separated list of profile IDs to apply");
+  console.log("  --list       List available profiles and exit");
+  console.log("  --verbose    Show extra detail (source paths, symlink targets) on stderr");
+  console.log("  --quiet      Suppress ok/link/skip/mkdir output; show only errors and summary");
   console.log("");
   if (profiles.length > 0) {
     console.log("Available profiles:");
@@ -444,22 +466,7 @@ function inspectAction(action) {
   };
 }
 
-function buildInspectionCache(profiles) {
-  const cache = new Map();
-
-  for (const profile of profiles) {
-    for (const action of profile.actions) {
-      const key = `${action.source}::${action.target}`;
-      if (!cache.has(key)) {
-        cache.set(key, inspectAction(action));
-      }
-    }
-  }
-
-  return cache;
-}
-
-async function buildInspectionCacheAsync(profiles, onProgress) {
+async function buildInspectionCache(profiles, onProgress = null) {
   const cache = new Map();
   const allActions = [];
 
@@ -553,81 +560,53 @@ async function runInstallation({
           summary.completedActions += 1;
           return;
         }
+      }
 
+      // Determine reason for replacement (works for both symlink and non-symlink)
+      let reason;
+      if (stats.isSymbolicLink()) {
         const currentTarget = fs.readlinkSync(target);
-        const prompt = {
-          profile,
-          source,
-          target,
-          reason: `symlink points to ${currentTarget}`,
-          preview: previewDiff(source, target),
-          autoConfirm: assumeYes,
-          dryRun,
-        };
-
-        emit("prompt", prompt);
-
-        if (dryRun) {
-          emit("skip", { profile, source, target, reason: "dry-run" });
-          summary.skipped += 1;
-          summary.completedActions += 1;
-          return;
-        }
-
-        const confirmed = assumeYes
-          ? true
-          : await confirmReplacement(prompt);
-
-        if (!confirmed) {
-          emit("skip", { profile, source, target, reason: "user-declined" });
-          summary.skipped += 1;
-          summary.completedActions += 1;
-          return;
-        }
-
-        const backup = `${target}.bak.${timestamp}`;
-        emit("backup", { profile, path: target, backup, source, target });
-        summary.backedUp += 1;
-        fs.renameSync(target, backup);
+        reason = `symlink points to ${currentTarget}`;
       } else {
-        const reason = contentMatches(source, target)
+        reason = contentMatches(source, target)
           ? `${stats.isDirectory() ? "existing directory" : "existing path"} matches content but is not a symlink`
           : "existing path differs";
-        const prompt = {
-          profile,
-          source,
-          target,
-          reason,
-          preview: previewDiff(source, target),
-          autoConfirm: assumeYes,
-          dryRun,
-        };
-
-        emit("prompt", prompt);
-
-        if (dryRun) {
-          emit("skip", { profile, source, target, reason: "dry-run" });
-          summary.skipped += 1;
-          summary.completedActions += 1;
-          return;
-        }
-
-        const confirmed = assumeYes
-          ? true
-          : await confirmReplacement(prompt);
-
-        if (!confirmed) {
-          emit("skip", { profile, source, target, reason: "user-declined" });
-          summary.skipped += 1;
-          summary.completedActions += 1;
-          return;
-        }
-
-        const backup = `${target}.bak.${timestamp}`;
-        emit("backup", { profile, path: target, backup, source, target });
-        summary.backedUp += 1;
-        fs.renameSync(target, backup);
       }
+
+      const prompt = {
+        profile,
+        source,
+        target,
+        reason,
+        preview: previewDiff(source, target),
+        autoConfirm: assumeYes,
+        dryRun,
+      };
+
+      emit("prompt", prompt);
+
+      if (dryRun) {
+        emit("skip", { profile, source, target, reason: "dry-run" });
+        summary.skipped += 1;
+        summary.completedActions += 1;
+        return;
+      }
+
+      const confirmed = assumeYes
+        ? true
+        : await confirmReplacement(prompt);
+
+      if (!confirmed) {
+        emit("skip", { profile, source, target, reason: "user-declined" });
+        summary.skipped += 1;
+        summary.completedActions += 1;
+        return;
+      }
+
+      const backup = `${target}.bak.${timestamp}`;
+      emit("backup", { profile, path: target, backup, source, target });
+      summary.backedUp += 1;
+      fs.renameSync(target, backup);
     }
 
     const linkTarget = relativeTarget(source, target);
@@ -672,7 +651,6 @@ async function runInstallation({
 module.exports = {
   binaryDetected,
   buildInspectionCache,
-  buildInspectionCacheAsync,
   contentMatches,
   getDefaultRepoRoot,
   detectInstalledTools,

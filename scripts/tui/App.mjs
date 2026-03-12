@@ -7,7 +7,7 @@ import { ChromeBar, FooterBar } from "./ui/chrome.mjs";
 import { SelectionScreen, ConfirmScreen, PathEditOverlay, RunScreen, LoadingScreen, DiffOverlay } from "./components/index.mjs";
 import { h } from "./ui/react-helpers.mjs";
 
-export function InstallerApp({ profiles, options, initialSelectedIds, runInstallation, inspectProfile, buildInspectionCacheAsync, sourceRoot, configPath, writeSourceRoot, onFinish }) {
+export function InstallerApp({ profiles, options, initialSelectedIds, runInstallation, inspectProfile, buildInspectionCache, sourceRoot, configPath, writeSourceRoot, onFinish }) {
   const { exit } = useApp();
   const [stage, setStage] = useState("loading");
   const [inspectionCache, setInspectionCache] = useState(null);
@@ -53,11 +53,11 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
 
   useEffect(() => {
     if (stage !== "loading") return;
-    buildInspectionCacheAsync(profiles, setScanProgress).then((cache) => {
+    buildInspectionCache(profiles, setScanProgress).then((cache) => {
       setInspectionCache(cache);
       setStage(initialSelectedIds ? "run" : "select");
     });
-  }, [stage, buildInspectionCacheAsync, profiles, initialSelectedIds]);
+  }, [stage, buildInspectionCache, profiles, initialSelectedIds]);
 
   // Wrap raw inspectProfile with the built cache so all children get consistent data.
   const inspectProfileFn = useCallback(
@@ -307,17 +307,11 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
     setEditingSourceRoot(false);
   };
 
-  useEffect(() => {
-    if (stage !== "run" || startedRef.current) return;
-    startedRef.current = true;
-
-    const keysSnapshot = selectedActionKeysRef.current;
-    const profilesToInstall = profiles
-      .map((profile) => ({
-        ...profile,
-        actions: profile.actions.filter((action) => keysSnapshot.has(`${profile.id}::${action.target}`)),
-      }))
-      .filter((profile) => profile.actions.length > 0);
+   useEffect(() => {
+     if (stage !== "run" || startedRef.current) return;
+     startedRef.current = true;
+ 
+     const profilesToInstall = selectedProfiles;
 
     const appendLog = (kind, message) => {
       sequenceRef.current += 1;
@@ -366,8 +360,8 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
       }
     };
 
-    void begin();
-  }, [profiles, options.dryRun, runInstallation, stage]);
+     void begin();
+   }, [selectedProfiles, options.dryRun, runInstallation, stage]);
 
   const content = stage === "loading"
     ? h(LoadingScreen, { scanProgress, totalHeight })

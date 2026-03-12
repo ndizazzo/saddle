@@ -1,5 +1,7 @@
 export function groupByTool(profiles) {
   const groups = new Map();
+  const disabledCounts = new Map();
+  const totalCounts = new Map();
 
   for (const profile of profiles) {
     const tool = profile.tool;
@@ -12,6 +14,8 @@ export function groupByTool(profiles) {
         profiles: [],
         actionCount: 0,
       });
+      disabledCounts.set(tool, 0);
+      totalCounts.set(tool, 0);
     }
 
     const group = groups.get(tool);
@@ -20,9 +24,17 @@ export function groupByTool(profiles) {
     if (profile.installed !== false) {
       group.installed = true;
     }
+    totalCounts.set(tool, totalCounts.get(tool) + 1);
     if (profile.enabled === false) {
-      group.enabled = false;
+      disabledCounts.set(tool, disabledCounts.get(tool) + 1);
     }
+  }
+
+  // A group is disabled only if ALL of its profiles are disabled
+  for (const [tool, group] of groups) {
+    const total = totalCounts.get(tool);
+    const disabled = disabledCounts.get(tool);
+    group.enabled = total === 0 || disabled < total;
   }
 
   return Array.from(groups.values()).sort((a, b) => {

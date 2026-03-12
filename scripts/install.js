@@ -5,7 +5,7 @@
 const fs = require("fs");
 const readline = require("readline/promises");
 const {
-  buildInspectionCacheAsync,
+  buildInspectionCache,
   getDefaultRepoRoot,
   detectInstalledTools,
   discoverProfiles,
@@ -88,17 +88,26 @@ async function runPlainInstaller({ profiles, options, initialSelectedIds }) {
       },
       onEvent: (event) => {
         if (event.type === "profile-start") {
-          console.log(`== ${event.profile.label} ==`);
+          if (!options.quiet) {
+            console.log(`== ${event.profile.label} ==`);
+          }
           return;
         }
 
         if (event.type === "mkdir") {
-          console.log(`mkdir ${event.path}`);
+          if (!options.quiet) {
+            console.log(`mkdir ${event.path}`);
+          }
           return;
         }
 
         if (event.type === "ok") {
-          console.log(`ok ${event.target}`);
+          if (!options.quiet) {
+            console.log(`ok ${event.target}`);
+          }
+          if (options.verbose) {
+            process.stderr.write(`  resolved: ${event.resolvedTarget || event.target}\n`);
+          }
           return;
         }
 
@@ -116,7 +125,9 @@ async function runPlainInstaller({ profiles, options, initialSelectedIds }) {
         }
 
         if (event.type === "skip") {
-          console.log(`skip ${event.target}`);
+          if (!options.quiet) {
+            console.log(`skip ${event.target}`);
+          }
           return;
         }
 
@@ -126,7 +137,12 @@ async function runPlainInstaller({ profiles, options, initialSelectedIds }) {
         }
 
         if (event.type === "link") {
-          console.log(`link ${event.target} -> ${event.linkTarget}`);
+          if (!options.quiet) {
+            console.log(`link ${event.target} -> ${event.linkTarget}`);
+          }
+          if (options.verbose) {
+            process.stderr.write(`  source: ${event.source || event.linkTarget}\n`);
+          }
           return;
         }
 
@@ -152,9 +168,12 @@ async function runPlainInstaller({ profiles, options, initialSelectedIds }) {
 }
 
 async function main(argv) {
-  const config = loadConfig(getDefaultRepoRoot());
-  const { configError } = config;
-  if (configError) {
+   const config = loadConfig(getDefaultRepoRoot());
+   const { configError, sourceRoot } = config;
+   if (sourceRoot && !fs.existsSync(sourceRoot)) {
+     process.stderr.write(`Warning: source root ${sourceRoot} does not exist. Profiles may be empty.\n`);
+   }
+   if (configError) {
     const choice = await handleInvalidConfig(configError);
     if (choice === "exit") {
       process.exit(0);
@@ -194,7 +213,7 @@ async function main(argv) {
       initialSelectedIds,
       runInstallation,
       inspectProfile,
-      buildInspectionCacheAsync,
+      buildInspectionCache,
       sourceRoot: getDefaultRepoRoot(),
       configPath: CONFIG_PATH,
       writeSourceRoot,

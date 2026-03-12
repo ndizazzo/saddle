@@ -142,6 +142,12 @@ describe("groupByTool", () => {
     assert.strictEqual(groupByTool([p])[0].enabled, false);
   });
 
+  it("group.enabled is true when mix of enabled and disabled profiles", () => {
+    const p1 = makeProfile("a", "A", true, 1);
+    const p2 = { ...makeProfile("a", "A", true, 1), enabled: false };
+    assert.strictEqual(groupByTool([p1, p2])[0].enabled, true);
+  });
+
   it("enabled tools sort before disabled tools", () => {
     const disabled = { ...makeProfile("aaa", "AAA", true, 1), enabled: false };
     const enabled = makeProfile("zzz", "ZZZ", true, 1);

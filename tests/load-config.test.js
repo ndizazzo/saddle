@@ -311,10 +311,47 @@ describe("load-config", () => {
       mkfile(path.join(rulesDir, "valid.yaml"), "tool: valid\nlabel: Valid\nhome: /tmp/v\nmappings: []\n");
       const rules = fresh().loadRules();
       assert.strictEqual(rules.length, 1);
-    });
-  });
+     });
+   });
 
-  describe("seedDefaultRules", () => {
+   describe("normalizeRule", () => {
+     it("preserves itemType from mapping when present", () => {
+       mkdir(rulesDir);
+       mkfile(path.join(rulesDir, "with-itemtype.yaml"), [
+         "tool: test",
+         "label: Test",
+         "home: /tmp/test",
+         "mappings:",
+         "  - type: skills",
+         "    source: skills",
+         "    target: skills",
+         "    itemType: skill",
+       ].join("\n"));
+       const rules = fresh().loadRules();
+       assert.strictEqual(rules.length, 1);
+       assert.strictEqual(rules[0].mappings.length, 1);
+       assert.strictEqual(rules[0].mappings[0].itemType, "skill");
+     });
+
+     it("omits itemType when absent (backward compat)", () => {
+       mkdir(rulesDir);
+       mkfile(path.join(rulesDir, "no-itemtype.yaml"), [
+         "tool: test",
+         "label: Test",
+         "home: /tmp/test",
+         "mappings:",
+         "  - type: skills",
+         "    source: skills",
+         "    target: skills",
+       ].join("\n"));
+       const rules = fresh().loadRules();
+       assert.strictEqual(rules.length, 1);
+       assert.strictEqual(rules[0].mappings.length, 1);
+       assert.strictEqual(rules[0].mappings[0].itemType, undefined);
+     });
+   });
+
+   describe("seedDefaultRules", () => {
     it("copies bundled rules into rules directory", () => {
       const { seedDefaultRules, BUNDLED_RULES_DIR } = fresh();
       seedDefaultRules();

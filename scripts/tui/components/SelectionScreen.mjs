@@ -4,7 +4,7 @@ import { Box, Text } from "ink";
 import { palette } from "../theme/catalog.mjs";
 import { theme } from "../theme/index.mjs";
 import { Frame, ShortLabel, ShortPath, TerminalTag } from "../ui/primitives.mjs";
-import { ActionLine, ActionLineHeader, actionKindMeta, itemTypeMeta } from "../ui/actions.mjs";
+import { ActionLine, ActionLineHeader, actionKindMeta, itemTypeMeta, ACTION_COL, VIA_COL, TYPE_COL } from "../ui/actions.mjs";
 import { h } from "../ui/react-helpers.mjs";
 
 export function ToolList({ toolGroups, depth, toolIndex, selectedActionKeys, focusedPane, inspectProfile }) {
@@ -169,10 +169,6 @@ export function ToolDetail({ toolGroups, toolIndex, inspectProfile, layout }) {
   );
 }
 
-const SEL_VIA_COL    = 7;  // "SYMLINK"
-const SEL_TYPE_COL   = 5;  // "AGENT" / "SKILL"
-const SEL_ACTION_COL = 9;  // "NO CHANGE"
-
 export function ActionSelector({ toolGroups, toolIndex, flatActions, selectedActionKeys, actionIndex, actionScrollOffset, layout }) {
   const group = toolGroups[toolIndex] || null;
   if (!group) {
@@ -195,23 +191,23 @@ export function ActionSelector({ toolGroups, toolIndex, flatActions, selectedAct
 
 
   const columnHeader = h(
-    Box,
-    { key: "col-header", height: 1, justifyContent: "space-between" },
-    h(
-      Box,
-      { columnGap: 1 },
-      h(Text, {}, " "),
-      h(Text, {}, "   "),
-      h(Text, { color: theme.color.fg.dim }, "NAME"),
-    ),
-    h(
-      Box,
-      { columnGap: 2 },
-      h(Box, { width: SEL_VIA_COL },    h(Text, { color: theme.color.fg.dim }, "VIA")),
-      h(Box, { width: SEL_TYPE_COL },   h(Text, { color: theme.color.fg.dim }, "TYPE")),
-      h(Box, { width: SEL_ACTION_COL }, h(Text, { color: theme.color.fg.dim }, "ACTION")),
-    ),
-  );
+     Box,
+     { key: "col-header", height: 1, justifyContent: "space-between" },
+     h(
+       Box,
+       { columnGap: 1 },
+       h(Text, {}, " "),
+       h(Text, {}, "   "),
+       h(Text, { color: theme.color.fg.dim }, "NAME"),
+     ),
+     h(
+       Box,
+       { columnGap: 2 },
+       h(Box, { width: VIA_COL },    h(Text, { color: theme.color.fg.dim }, "VIA")),
+       h(Box, { width: TYPE_COL },   h(Text, { color: theme.color.fg.dim }, "TYPE")),
+       h(Box, { width: ACTION_COL }, h(Text, { color: theme.color.fg.dim }, "ACTION")),
+     ),
+   );
 
   const rows = [];
   let lastProfileId = null;
@@ -243,13 +239,13 @@ export function ActionSelector({ toolGroups, toolIndex, flatActions, selectedAct
         h(Text, { color: isSelected ? theme.color.accent.primary : theme.color.fg.muted }, isSelected ? "[x]" : "[ ]"),
         h(Text, { color: isFocused ? theme.color.fg.primary : theme.color.fg.muted, bold: isFocused }, targetBasename),
       ),
-      h(
-        Box,
-        { columnGap: 2 },
-        h(Box, { width: SEL_VIA_COL },    h(Text, { color: theme.color.fg.dim }, effectLabel)),
-        h(Box, { width: SEL_TYPE_COL },   h(Text, { color: type.color }, type.label)),
-        h(Box, { width: SEL_ACTION_COL }, h(Text, { color: meta.color, bold: true }, meta.label)),
-      ),
+       h(
+         Box,
+         { columnGap: 2 },
+         h(Box, { width: VIA_COL },    h(Text, { color: theme.color.fg.dim }, effectLabel)),
+         h(Box, { width: TYPE_COL },   h(Text, { color: type.color }, type.label)),
+         h(Box, { width: ACTION_COL }, h(Text, { color: meta.color, bold: true }, meta.label)),
+       ),
     ));
   }
 

@@ -67,7 +67,12 @@ function normalizeRule(raw) {
     binary: normalizeBinary(raw.binary),
     home: raw.home || null,
     enabled: raw.enabled !== false,
-    mappings: Array.isArray(raw.mappings) ? raw.mappings.filter((m) => m && m.type && m.source && m.target !== undefined) : [],
+    mappings: Array.isArray(raw.mappings) ? raw.mappings.filter((m) => m && m.type && m.source && m.target !== undefined).map((m) => ({
+      type: m.type,
+      source: m.source,
+      target: m.target,
+      ...(m.itemType ? { itemType: m.itemType } : {}),
+    })) : [],
   };
 }
 
@@ -97,17 +102,19 @@ function loadRules() {
   const files = fs.readdirSync(RULES_DIR).filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"));
   const rules = [];
 
-  for (const file of files) {
-    const filePath = path.join(RULES_DIR, file);
-    try {
-      const raw = fs.readFileSync(filePath, "utf8");
-      const parsed = parse(raw);
-      const rule = normalizeRule(parsed);
-      if (rule) {
-        rules.push(rule);
-      }
-    } catch {}
-  }
+   for (const file of files) {
+     const filePath = path.join(RULES_DIR, file);
+     try {
+       const raw = fs.readFileSync(filePath, "utf8");
+       const parsed = parse(raw);
+       const rule = normalizeRule(parsed);
+       if (rule) {
+         rules.push(rule);
+       }
+     } catch {
+       /* skip unparseable rule file — malformed YAML should not crash the whole config load */
+     }
+   }
 
   return rules;
 }
@@ -147,14 +154,16 @@ function loadConfig(fallbackSourceRoot) {
 }
 
 function writeSourceRoot(newPath) {
-  let parsed = {};
-  try {
-    const raw = fs.readFileSync(CONFIG_PATH, "utf8");
-    parsed = parse(raw) || {};
-  } catch {}
-  parsed.sourceRoot = newPath;
-  fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
-  fs.writeFileSync(CONFIG_PATH, stringify(parsed, { lineWidth: 120 }), "utf8");
-}
+   let parsed = {};
+   try {
+     const raw = fs.readFileSync(CONFIG_PATH, "utf8");
+     parsed = parse(raw) || {};
+   } catch {
+     /* config file doesn't exist yet — writing fresh config, start with empty object */
+   }
+   parsed.sourceRoot = newPath;
+   fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
+   fs.writeFileSync(CONFIG_PATH, stringify(parsed, { lineWidth: 120 }), "utf8");
+ }
 
 module.exports = { loadConfig, loadRules, writeSourceRoot, writeDefaultConfig, seedDefaultRules, CONFIG_PATH, CONFIG_DIR, RULES_DIR, DEFAULT_SOURCE_ROOT, BUNDLED_RULES_DIR };

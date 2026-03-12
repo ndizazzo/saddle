@@ -94,6 +94,8 @@ describe("parseArgs", () => {
     assert.strictEqual(opts.listOnly, false);
     assert.strictEqual(opts.help, false);
     assert.strictEqual(opts.profileIds, null);
+    assert.strictEqual(opts.verbose, false);
+    assert.strictEqual(opts.quiet, false);
   });
 
   it("--dry-run sets dryRun", () => {
@@ -150,6 +152,34 @@ describe("parseArgs", () => {
 
   it("throws when --profile has no value", () => {
     assert.throws(() => core.parseArgs(["--profile"]), /requires/);
+  });
+
+  it("defaults verbose to false", () => {
+    assert.strictEqual(core.parseArgs([]).verbose, false);
+  });
+
+  it("defaults quiet to false", () => {
+    assert.strictEqual(core.parseArgs([]).quiet, false);
+  });
+
+  it("--verbose sets verbose: true", () => {
+    assert.strictEqual(core.parseArgs(["--verbose"]).verbose, true);
+  });
+
+  it("--quiet sets quiet: true", () => {
+    assert.strictEqual(core.parseArgs(["--quiet"]).quiet, true);
+  });
+
+  it("--verbose and --quiet can both be specified without error", () => {
+    const opts = core.parseArgs(["--verbose", "--quiet"]);
+    assert.strictEqual(opts.verbose, true);
+    assert.strictEqual(opts.quiet, true);
+  });
+
+  it("--quiet then --verbose: both true (last one wins per-flag)", () => {
+    const opts = core.parseArgs(["--quiet", "--verbose"]);
+    assert.strictEqual(opts.verbose, true);
+    assert.strictEqual(opts.quiet, true);
   });
 });
 
@@ -357,17 +387,17 @@ describe("buildInspectionCache", () => {
   before(() => { tmpDir = makeTempDir("ai-config-bic-"); });
   after(() => { rmrf(tmpDir); });
 
-  it("creates a Map with source::target keys", () => {
+  it("creates a Map with source::target keys", async () => {
     const src = path.join(tmpDir, "s.txt");
     const tgt = path.join(tmpDir, "t.txt");
     mkfile(src, "x");
     const profiles = [{ id: "p1", actions: [{ source: src, target: tgt }] }];
-    const cache = core.buildInspectionCache(profiles);
+    const cache = await core.buildInspectionCache(profiles);
     assert.ok(cache instanceof Map);
     assert.ok(cache.has(`${src}::${tgt}`));
   });
 
-  it("does not duplicate entries for the same source::target pair", () => {
+  it("does not duplicate entries for the same source::target pair", async () => {
     const src = path.join(tmpDir, "dup-s.txt");
     const tgt = path.join(tmpDir, "dup-t.txt");
     mkfile(src, "x");
@@ -376,17 +406,17 @@ describe("buildInspectionCache", () => {
       { id: "p1", actions: [action] },
       { id: "p2", actions: [action] },
     ];
-    const cache = core.buildInspectionCache(profiles);
+    const cache = await core.buildInspectionCache(profiles);
     assert.strictEqual(cache.size, 1);
   });
 
-  it("caches multiple distinct pairs", () => {
+  it("caches multiple distinct pairs", async () => {
     const s1 = path.join(tmpDir, "s1.txt"); mkfile(s1, "1");
     const s2 = path.join(tmpDir, "s2.txt"); mkfile(s2, "2");
     const t1 = path.join(tmpDir, "t1.txt");
     const t2 = path.join(tmpDir, "t2.txt");
     const profiles = [{ id: "p", actions: [{ source: s1, target: t1 }, { source: s2, target: t2 }] }];
-    assert.strictEqual(core.buildInspectionCache(profiles).size, 2);
+    assert.strictEqual((await core.buildInspectionCache(profiles)).size, 2);
   });
 });
 
