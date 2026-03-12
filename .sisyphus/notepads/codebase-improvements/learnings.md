@@ -67,3 +67,14 @@
 - The file had already evolved past the plan's line numbers (e.g. `--uninstall` was added before this task); always re-read files before editing
 - `process.exit()` is called inside `runCheck`, so the `return` after `await runCheck(...)` in `install.js` is defensive only
 - Pattern: new CLI modes are dispatched in `main()` in `install.js` after `options.listOnly` / `options.uninstall` blocks
+
+## Wave 4 Test Patterns (readLockfile/writeLockfile/runUninstall/runCheck)
+
+- `process.exit` mocking pattern: assign a throwing function, use try/finally to restore, catch only "process.exit" errors
+- `process.stderr.write` mocking: save original, replace with function that logs + calls `origWrite.apply(process.stderr, args)`, restore in finally
+- `fs.realpathSync(makeTempDir(...))` is critical on macOS — `/tmp` is a symlink to `/private/tmp`; canonical paths required for `runUninstall` sourceRoot comparison
+- `CONFIG_DIR` is computed from `AI_CONFIG_DIR` env var at module load time; global `before` sets it before `require`; all lockfile tests share `globalTmpDir/installed.json`; clean up with `afterEach`
+- `runUninstall` skips symlinks not inside `sourceRoot`; tests verify both removal (lstatSync throws ENOENT) and skip (lstatSync succeeds)
+- `runCheck` always calls `process.exit` at the end (0 or 1); all `runCheck` tests must mock process.exit
+- `normalizeRule` itemType tests were already added in Task 11 (load-config.test.js lines 317-352) — no duplication needed
+- 171 tests pass after Wave 4 additions (16 new tests: 6 lockfile + 6 uninstall + 4 check)

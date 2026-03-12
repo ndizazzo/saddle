@@ -976,3 +976,249 @@ describe("runInstallation — broken symlink replacement", () => {
     assert.ok(fs.existsSync(tgt), "new symlink should resolve");
   });
 });
+
+describe("readLockfile / writeLockfile", () => {
+  let lockfilePath;
+  before(() => {
+    lockfilePath = path.join(globalTmpDir, "installed.json");
+  });
+  afterEach(() => {
+    try { fs.unlinkSync(lockfilePath); } catch {}
+  });
+
+  it("writeLockfile writes valid JSON to CONFIG_DIR/installed.json", () => {
+    const profiles = [{ id: "p1", tool: "alpha", actions: [{ source: "/src/a", target: "/tgt/a" }] }];
+    core.writeLockfile(profiles, "/src");
+    assert.ok(fs.existsSync(lockfilePath));
+    const content = fs.readFileSync(lockfilePath, "utf8");
+    assert.doesNotThrow(() => JSON.parse(content));
+  });
+
+  it("readLockfile reads back the written lockfile correctly", () => {
+    const profiles = [{ id: "p1", tool: "alpha", actions: [{ source: "/src/a", target: "/tgt/a" }] }];
+    core.writeLockfile(profiles, "/my-source");
+    const result = core.readLockfile();
+    assert.ok(result !== null);
+    assert.strictEqual(result.sourceRoot, "/my-source");
+    assert.strictEqual(result.version, 1);
+    assert.strictEqual(result.links.length, 1);
+  });
+
+  it("readLockfile returns null when file is absent", () => {
+    assert.strictEqual(core.readLockfile(), null);
+  });
+
+  it("readLockfile returns null when file contains invalid JSON", () => {
+    fs.writeFileSync(lockfilePath, "{ invalid json }", "utf8");
+    assert.strictEqual(core.readLockfile(), null);
+  });
+
+  it("writeLockfile includes version, updatedAt, sourceRoot, links", () => {
+    core.writeLockfile([], "/source-root");
+    const lf = JSON.parse(fs.readFileSync(lockfilePath, "utf8"));
+    assert.strictEqual(lf.version, 1);
+    assert.ok(typeof lf.updatedAt === "string");
+    assert.strictEqual(lf.sourceRoot, "/source-root");
+    assert.ok(Array.isArray(lf.links));
+  });
+
+  it("writeLockfile links array has source, target, profileId, tool fields", () => {
+    const profiles = [{ id: "p1", tool: "alpha", actions: [{ source: "/src/a", target: "/tgt/a" }] }];
+    core.writeLockfile(profiles, "/src");
+    const lf = JSON.parse(fs.readFileSync(lockfilePath, "utf8"));
+    assert.strictEqual(lf.links.length, 1);
+    const link = lf.links[0];
+    assert.strictEqual(link.source, "/src/a");
+    assert.strictEqual(link.target, "/tgt/a");
+    assert.strictEqual(link.profileId, "p1");
+    assert.strictEqual(link.tool, "alpha");
+  });
+});
+
+describe("runUninstall", () => {
+  let srcDir;
+  let tgtDir;
+  let lockfilePath;
+
+  beforeEach(() => {
+    srcDir = fs.realpathSync(makeTempDir("ai-config-uninstall-src-"));
+    tgtDir = fs.realpathSync(makeTempDir("ai-config-uninstall-tgt-"));
+    lockfilePath = path.join(globalTmpDir, "installed.json");
+  });
+
+  afterEach(() => {
+    rmrf(srcDir);
+    rmrf(tgtDir);
+    try { fs.unlinkSync(lockfilePath); } catch {}
+  });
+
+  it("removes symlinks pointing into sourceRoot", async () => {
+    const source = path.join(srcDir, "skill");
+    mkdir(source);
+    const target = path.join(tgtDir, "skill");
+    fs.symlinkSync(source, target);
+    core.writeLockfile([{ id: "p1", tool: "alpha", actions: [{ source, target }] }], srcDir);
+
+    await core.runUninstall({ dryRun: false, quiet: true });
+
+    assert.throws(() => fs.lstatSync(target), /ENOENT/);
+  });
+
+  it("skips symlinks pointing outside sourceRoot (foreign symlinks)", async () => {
+    const source = path.join(tgtDir, "foreign-skill");
+    mkdir(source);
+    const target = path.join(tgtDir, "linked-skill");
+    fs.symlinkSync(source, target);
+    core.writeLockfile([{ id: "p1", tool: "alpha", actions: [{ source, target }] }], srcDir);
+
+    await core.runUninstall({ dryRun: false, quiet: true });
+
+    assert.ok(fs.lstatSync(target).isSymbolicLink());
+  });
+
+  it("skips non-symlink files", async () => {
+    const source = path.join(srcDir, "regular.txt");
+    mkfile(source, "content");
+    const target = path.join(tgtDir, "regular.txt");
+    mkfile(target, "content");
+    core.writeLockfile([{ id: "p1", tool: "alpha", actions: [{ source, target }] }], srcDir);
+
+    await core.runUninstall({ dryRun: false, quiet: true });
+
+    assert.ok(fs.existsSync(target));
+  });
+
+  it("dry-run does NOT remove symlinks", async () => {
+    const source = path.join(srcDir, "skill");
+    mkdir(source);
+    const target = path.join(tgtDir, "skill");
+    fs.symlinkSync(source, target);
+    core.writeLockfile([{ id: "p1", tool: "alpha", actions: [{ source, target }] }], srcDir);
+
+    await core.runUninstall({ dryRun: true, quiet: true });
+
+    assert.ok(fs.lstatSync(target).isSymbolicLink());
+  });
+
+  it("exits 1 when no lockfile exists", async () => {
+    const originalExit = process.exit;
+    let exitCode;
+    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    try {
+      await core.runUninstall({ dryRun: false, quiet: true });
+    } catch (e) {
+      if (!e.message.startsWith("process.exit")) throw e;
+    } finally {
+      process.exit = originalExit;
+    }
+    assert.strictEqual(exitCode, 1);
+  });
+
+  it("uses unlinkSync: symlink is gone after removal", async () => {
+    const source = path.join(srcDir, "tool-skill");
+    mkdir(source);
+    const target = path.join(tgtDir, "tool-skill");
+    fs.symlinkSync(source, target);
+    core.writeLockfile([{ id: "p1", tool: "alpha", actions: [{ source, target }] }], srcDir);
+
+    assert.ok(fs.lstatSync(target).isSymbolicLink());
+    await core.runUninstall({ dryRun: false, quiet: true });
+    assert.throws(() => fs.lstatSync(target), /ENOENT/);
+  });
+});
+
+describe("runCheck", () => {
+  let srcDir;
+  let tgtDir;
+  let lockfilePath;
+
+  beforeEach(() => {
+    srcDir = fs.realpathSync(makeTempDir("ai-config-check-src-"));
+    tgtDir = fs.realpathSync(makeTempDir("ai-config-check-tgt-"));
+    lockfilePath = path.join(globalTmpDir, "installed.json");
+  });
+
+  afterEach(() => {
+    rmrf(srcDir);
+    rmrf(tgtDir);
+    try { fs.unlinkSync(lockfilePath); } catch {}
+  });
+
+  it("exits 0 when all symlinks are in sync (already-linked)", async () => {
+    const source = path.join(srcDir, "skill");
+    mkdir(source);
+    const target = path.join(tgtDir, "skill");
+    fs.symlinkSync(source, target);
+    core.writeLockfile([{ id: "p1", tool: "alpha", actions: [{ source, target }] }], srcDir);
+
+    const originalExit = process.exit;
+    let exitCode;
+    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    try {
+      await core.runCheck({});
+    } catch (e) {
+      if (!e.message.startsWith("process.exit")) throw e;
+    } finally {
+      process.exit = originalExit;
+    }
+    assert.strictEqual(exitCode, 0);
+  });
+
+  it("exits 1 when any symlink is out of sync", async () => {
+    const source = path.join(srcDir, "skill");
+    mkdir(source);
+    const target = path.join(tgtDir, "skill");
+    core.writeLockfile([{ id: "p1", tool: "alpha", actions: [{ source, target }] }], srcDir);
+
+    const originalExit = process.exit;
+    let exitCode;
+    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    try {
+      await core.runCheck({});
+    } catch (e) {
+      if (!e.message.startsWith("process.exit")) throw e;
+    } finally {
+      process.exit = originalExit;
+    }
+    assert.strictEqual(exitCode, 1);
+  });
+
+  it("works without lockfile (discovers profiles, calls process.exit)", async () => {
+    const originalExit = process.exit;
+    let exitCode;
+    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    try {
+      await core.runCheck({});
+    } catch (e) {
+      if (!e.message.startsWith("process.exit")) throw e;
+    } finally {
+      process.exit = originalExit;
+    }
+    assert.ok(exitCode === 0 || exitCode === 1, `expected exitCode 0 or 1, got ${exitCode}`);
+  });
+
+  it("verbose flag prints out-of-sync details to stderr", async () => {
+    const source = path.join(srcDir, "skill");
+    mkdir(source);
+    const target = path.join(tgtDir, "skill");
+    core.writeLockfile([{ id: "p1", tool: "alpha", actions: [{ source, target }] }], srcDir);
+
+    const stderrMessages = [];
+    const origWrite = process.stderr.write;
+    process.stderr.write = function (msg, ...args) {
+      stderrMessages.push(typeof msg === "string" ? msg : String(msg));
+      return origWrite.apply(process.stderr, [msg, ...args]);
+    };
+    const originalExit = process.exit;
+    process.exit = (code) => { throw new Error(`process.exit(${code})`); };
+    try {
+      await core.runCheck({ verbose: true });
+    } catch (e) {
+      if (!e.message.startsWith("process.exit")) throw e;
+    } finally {
+      process.exit = originalExit;
+      process.stderr.write = origWrite;
+    }
+    assert.ok(stderrMessages.some((m) => m.includes("out-of-sync")));
+  });
+});
