@@ -2,7 +2,6 @@ import path from "path";
 import { Box, Text } from "ink";
 import { palette } from "../theme/catalog.mjs";
 import { theme } from "../theme/index.mjs";
-import { ShortPath, TerminalTag } from "./primitives.mjs";
 import { h } from "./react-helpers.mjs";
 
 export const ACTION_COL = 9;

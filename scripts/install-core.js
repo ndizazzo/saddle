@@ -898,7 +898,7 @@ async function runUninstall(options) {
   process.stdout.write(`\nUninstall complete: ${removed} removed, ${skipped} skipped, ${missing} missing\n`);
 }
 
-async function runCheck(options, config) {
+async function runCheck(options, _config) {
   const lockfile = readLockfile();
 
   let linksToCheck;

@@ -2,7 +2,6 @@
 
 const { describe, it, before, after, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
-const os = require("os");
 const fs = require("fs");
 const path = require("path");
 const { makeTempDir, rmrf, mkfile, mkdir, clearConfigModules } = require("./helpers.js");
@@ -352,10 +351,6 @@ describe("inspectProfile", () => {
   let tmpDir;
   before(() => { tmpDir = makeTempDir("saddle-ip-"); });
   after(() => { rmrf(tmpDir); });
-
-  function makeAction(kind) {
-    return { source: path.join(tmpDir, `${kind}-src`), target: path.join(tmpDir, `${kind}-tgt`) };
-  }
 
   it("returns correct counts for a mix of action kinds", () => {
     const newSrc = path.join(tmpDir, "new-src.txt");

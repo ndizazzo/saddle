@@ -30,7 +30,11 @@
     "saddle": "bin/saddle.js"
   },
   "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "lint:agents": "bash ./scripts/agent-lint.sh",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "node --test tests/load-config.test.js tests/install-core.test.js tests/format.test.mjs",
     "prepare": "husky || true"
   },
@@ -41,7 +45,11 @@
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
-    "husky": "^9.1.7"
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-n": "^17.24.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.8.1"
   },
   "dependencies": {
     "@inkjs/ui": "^2.0.0",

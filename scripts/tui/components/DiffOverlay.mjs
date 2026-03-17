@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { spawnSync } from "child_process";
 import { Box, Text, useInput, useStdout } from "ink";
 import { palette } from "../theme/catalog.mjs";
