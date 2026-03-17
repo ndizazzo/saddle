@@ -777,7 +777,7 @@ describe("runInstallation — live", () => {
     assert.ok(fs.existsSync(tgt));
   });
 
-  it("backs up an existing symlink pointing elsewhere before re-linking", async () => {
+  it("replaces an existing symlink pointing elsewhere without creating a backup", async () => {
     const src    = path.join(srcDir, "src.txt");
     const other  = path.join(srcDir, "other.txt");
     const tgt    = path.join(tgtDir, "tgt.txt");
@@ -785,13 +785,14 @@ describe("runInstallation — live", () => {
     mkfile(other, "old");
     fs.symlinkSync(other, tgt);
     const events = [];
-    await core.runInstallation({
+    const summary = await core.runInstallation({
       selectedProfiles: makeProfiles([[src, tgt]]),
       dryRun: false,
       assumeYes: true,
       onEvent: (e) => events.push(e),
     });
-    assert.ok(events.some((e) => e.type === "backup"));
+    assert.ok(!events.some((e) => e.type === "backup"));
+    assert.strictEqual(summary.backedUp, 0);
     assert.ok(fs.lstatSync(tgt).isSymbolicLink());
   });
 
@@ -1032,7 +1033,7 @@ describe("runInstallation — broken symlink replacement", () => {
     });
 
     assert.strictEqual(summary.linked, 1);
-    assert.strictEqual(summary.backedUp, 1);
+    assert.strictEqual(summary.backedUp, 0);
     assert.ok(fs.lstatSync(tgt).isSymbolicLink());
     assert.ok(fs.existsSync(tgt), "new symlink should resolve");
   });

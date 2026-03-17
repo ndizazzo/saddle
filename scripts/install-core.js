@@ -656,10 +656,14 @@ async function runInstallation({
         return;
       }
 
-      const backup = `${target}.bak.${timestamp}`;
-      emit("backup", { profile, path: target, backup, source, target });
-      summary.backedUp += 1;
-      fs.renameSync(target, backup);
+      if (!stats.isSymbolicLink()) {
+        const backup = `${target}.bak.${timestamp}`;
+        emit("backup", { profile, path: target, backup, source, target });
+        summary.backedUp += 1;
+        fs.renameSync(target, backup);
+      } else {
+        fs.unlinkSync(target);
+      }
     }
 
     const linkTarget = relativeTarget(source, target);
