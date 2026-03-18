@@ -15,15 +15,16 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
   const [inspectionCache, setInspectionCache] = useState(null);
   const [scanProgress, setScanProgress] = useState({ done: 0, total: 0, current: "" });
   const [selectedActionKeys, setSelectedActionKeys] = useState(() => {
+    // When no explicit profile IDs provided (interactive mode), start empty.
+    // Selection will be populated from the inspection cache after scanning disk state.
+    if (!initialSelectedIds) return new Set();
+
     const keys = new Set();
-    const selectedProfileIds = initialSelectedIds ? new Set(initialSelectedIds) : null;
+    const selectedProfileIds = new Set(initialSelectedIds);
 
     for (const profile of profiles) {
       if (profile.informational || profile.installed === false || profile.enabled === false) continue;
-      const shouldSelect = selectedProfileIds
-        ? selectedProfileIds.has(profile.id)
-        : (profile.recommended && !profile.informational);
-      if (!shouldSelect) continue;
+      if (!selectedProfileIds.has(profile.id)) continue;
       for (const action of profile.actions) {
         keys.add(`${profile.id}::${action.target}`);
       }
@@ -57,6 +58,23 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
     if (stage !== "loading") return;
     buildInspectionCache(profiles, setScanProgress).then((cache) => {
       setInspectionCache(cache);
+
+      // In interactive mode, pre-select actions that are already correctly linked on disk.
+      if (!initialSelectedIds) {
+        const activeKeys = new Set();
+        for (const profile of profiles) {
+          if (profile.informational || profile.installed === false || profile.enabled === false) continue;
+          for (const action of profile.actions) {
+            const cacheKey = `${action.source}::${action.target}`;
+            const inspected = cache.get(cacheKey);
+            if (inspected && inspected.kind === "already-linked") {
+              activeKeys.add(`${profile.id}::${action.target}`);
+            }
+          }
+        }
+        setSelectedActionKeys(activeKeys);
+      }
+
       setStage(initialSelectedIds ? "run" : "select");
     });
   }, [stage, buildInspectionCache, profiles, initialSelectedIds]);

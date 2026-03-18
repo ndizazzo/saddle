@@ -7,11 +7,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.9.1] — 2026-03-12
 
-## [0.1.0] — 2026-03-12
+### Fixed
+
+- Backup on replace now only applies when the existing target is a real file; symlinks pointing
+  elsewhere are removed without creating a backup copy
+
+### Changed
+
+- Backup policy limited to one copy per target (`.bak.<timestamp>`); no backup is created when
+  replacing a symlink
 
 ### Added
+
+- commitlint with `@commitlint/config-conventional` enforces conventional commit messages
+- Husky `commit-msg` hook wires commitlint into every commit
+- Migrated package manager from npm to pnpm; `pnpm-lock.yaml` replaces `package-lock.json`
+- CI workflow updated to use `pnpm/action-setup` and pnpm commands
+
+## [0.9.0] — 2026-03-12
+
+### Added
+
 - Interactive Ink TUI with per-profile selection, diff overlay, and path editing
 - Non-interactive plain-text installer for CI/headless use
 - `--dry-run` flag — preview all changes without writing to disk
@@ -34,6 +52,3 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `scripts/agent-lint.sh` structural validator; runs on every commit via Husky pre-commit hook
 - GitHub Actions CI: Node 18, 20, 22 matrix on push and pull_request to main
 - 171 unit tests covering config loading, installation logic, and TUI formatting utilities
-
-[Unreleased]: https://github.com/ndizazzo/saddle/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/ndizazzo/saddle/releases/tag/v0.1.0

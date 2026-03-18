@@ -33,7 +33,7 @@
 ```bash
 # Clone and set up
 git clone https://github.com/ndizazzo/saddle-cli.git ~/dev/ai
-cd ~/dev/ai && npm install
+cd ~/dev/ai && pnpm install
 
 # Launch the interactive installer
 npx saddle-cli
@@ -253,8 +253,8 @@ Links to official documentation for each supported AI coding tool.
 ## Validation
 
 ```bash
-npm install
-npm run lint:agents
+pnpm install
+pnpm run lint:agents
 ```
 
 The same validator runs from the Husky pre-commit hook.

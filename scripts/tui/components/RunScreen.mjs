@@ -1,4 +1,4 @@
-import React from "react";
+
 import { Box, Newline, Text } from "ink";
 import { Alert, ConfirmInput, ProgressBar, Spinner, StatusMessage } from "@inkjs/ui";
 import { theme } from "../theme/index.mjs";

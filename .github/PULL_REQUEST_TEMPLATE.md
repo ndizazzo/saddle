@@ -12,8 +12,8 @@
 
 ## Testing
 
-- [ ] `npm test` passes (0 failures)
-- [ ] `npm run lint:agents` outputs `agent-lint: ok`
+- [ ] `pnpm test` passes (0 failures)
+- [ ] `pnpm run lint:agents` outputs `agent-lint: ok`
 - [ ] New tests added for new behaviour (if applicable)
 
 ## Checklist

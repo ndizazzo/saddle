@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import path from "path";
 import { Box, Text } from "ink";
 import { palette } from "../theme/catalog.mjs";

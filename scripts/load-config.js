@@ -7,6 +7,45 @@ const os = require("os");
 const path = require("path");
 const { parse, stringify } = require("yaml");
 
+/**
+ * @typedef {Object} BinarySpec
+ * @property {string|null} which - Command name to look up via `which`
+ * @property {Object.<string, string>} paths - Platform-specific absolute paths keyed by `process.platform`
+ */
+
+/**
+ * @typedef {Object} Mapping
+ * @property {"skills"|"file"|"directory"} type - How to enumerate source items
+ * @property {string} source - Repo-relative path to the source file or directory
+ * @property {string} target - Tool-home-relative destination path (or "." for home root)
+ * @property {string} [itemType] - Override the inferred item type label (e.g. "skill", "agent", "command")
+ */
+
+/**
+ * @typedef {Object} Rule
+ * @property {string} name - Tool identifier (e.g. "claude", "codex")
+ * @property {string} label - Human-readable display name
+ * @property {BinarySpec|null} binary - Binary detection spec; null when detection is home-only
+ * @property {string|null} home - Tilde-prefixed home directory path for the tool (e.g. "~/.claude")
+ * @property {boolean} enabled - Whether this rule is active
+ * @property {Mapping[]} mappings - Ordered list of source→target mapping definitions
+ */
+
+/**
+ * @typedef {Object} IgnoreSpec
+ * @property {Set<string>} names - Exact filenames to skip
+ * @property {RegExp[]} globRegexes - Compiled regexes for glob-style ignore patterns
+ */
+
+/**
+ * @typedef {Object} Config
+ * @property {string} sourceRoot - Absolute path to the canonical definitions repo
+ * @property {IgnoreSpec} ignore - Compiled ignore rules for directory mappings
+ * @property {Rule[]} rules - Loaded and normalised tool rules
+ * @property {function(string|any): string|null} expandHome - Expands a leading `~/` to the OS home directory
+ * @property {string|null} configError - YAML parse error message when the config file is malformed; null otherwise
+ */
+
 const CONFIG_DIR = process.env.SADDLE_DIR || path.join(os.homedir(), ".config", "saddle");
 const CONFIG_PATH = process.env.SADDLE_CONFIG || path.join(CONFIG_DIR, "config.yaml");
 const RULES_DIR = process.env.SADDLE_RULES_DIR || path.join(CONFIG_DIR, "rules");

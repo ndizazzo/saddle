@@ -1,4 +1,4 @@
-import React from "react";
+
 import { render } from "ink";
 import { ThemeProvider } from "@inkjs/ui";
 import { uiTheme } from "./theme/index.mjs";

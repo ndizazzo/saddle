@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { TextInput } from "@inkjs/ui";
 import { theme } from "../theme/index.mjs";

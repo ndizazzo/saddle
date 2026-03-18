@@ -8,6 +8,91 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 const { loadConfig, CONFIG_DIR } = require("./load-config");
 
+/**
+ * @typedef {Object} Action
+ * @property {string} source - Absolute path to the source file or directory in the repo
+ * @property {string} target - Absolute path to the desired symlink location on the user's machine
+ * @property {string} [itemType] - Semantic type of the item ("skill", "agent", "command", "config")
+ */
+
+/**
+ * @typedef {"new-link"|"already-linked"|"replace-link"|"replace-match"|"replace-diff"} ActionKind
+ */
+
+/**
+ * @typedef {Object} InspectedAction
+ * @property {ActionKind} kind - Describes the current state of the target relative to the source
+ * @property {string} label - Short display label (e.g. "create", "replace", "no change")
+ * @property {string} color - Suggested display color for the label
+ * @property {string} target - Absolute target path
+ * @property {string} source - Absolute source path
+ * @property {string} detail - Human-readable explanation of the current state
+ * @property {string} effectLabel - What the install action will do (e.g. "symlink")
+ * @property {string} beforePath - Path shown in the "before" column of a diff preview
+ * @property {string} beforeDetail - Description of the current item at the target
+ * @property {string} afterPath - Path shown in the "after" column of a diff preview
+ * @property {string} afterDetail - Description of the incoming item from the repo
+ * @property {string|null} preview - Truncated unified diff output, or null when not applicable
+ * @property {string} [itemType] - Forwarded from the source action
+ */
+
+/**
+ * @typedef {Object} Profile
+ * @property {string} id - Stable unique identifier in the form `tool-type-source`
+ * @property {string} label - Short display name (e.g. "skills", "AGENTS.md")
+ * @property {string} description - Destination-focused description (e.g. "Links to ~/.claude/skills")
+ * @property {boolean} recommended - Whether this profile is selected by default
+ * @property {boolean} installed - Whether the target tool was detected on this machine
+ * @property {boolean} enabled - Whether the source rule has enabled:true
+ * @property {boolean} [informational] - When true the profile is display-only and never installed
+ * @property {string} tool - Tool identifier matching the rule name (e.g. "claude")
+ * @property {string} toolLabel - Human-readable tool name (e.g. "Claude Code")
+ * @property {Action[]} actions - Resolved list of source→target symlink actions
+ */
+
+/**
+ * @typedef {Object} InspectionCounts
+ * @property {number} total - Total number of actions in the profile
+ * @property {number} create - Actions that will create a new symlink
+ * @property {number} noChange - Actions where the symlink is already correct
+ * @property {number} replace - Actions that will replace an existing file or symlink
+ */
+
+/**
+ * @typedef {Object} ProfileInspection
+ * @property {InspectedAction[]} actions - Per-action inspection results
+ * @property {InspectionCounts} counts - Aggregated counts across all actions
+ */
+
+/**
+ * @typedef {Object} LockfileLink
+ * @property {string} source - Absolute source path recorded at install time
+ * @property {string} target - Absolute target path recorded at install time
+ * @property {string} profileId - ID of the profile that created this link
+ * @property {string} tool - Tool identifier for the link
+ */
+
+/**
+ * @typedef {Object} Lockfile
+ * @property {1} version - Schema version (currently always 1)
+ * @property {string} updatedAt - ISO 8601 timestamp of the last install
+ * @property {string} sourceRoot - Absolute path to the repo root at install time
+ * @property {LockfileLink[]} links - Every symlink created during the install session
+ */
+
+/**
+ * @typedef {Object} InstallSummary
+ * @property {number} totalProfiles - Number of profiles processed
+ * @property {number} totalActions - Total number of actions across all profiles
+ * @property {number} completedActions - Actions that finished (success or error)
+ * @property {number} linked - Symlinks successfully created
+ * @property {number} skipped - Actions skipped (dry-run or user-declined)
+ * @property {number} unchanged - Targets that were already correctly linked
+ * @property {number} backedUp - Existing non-symlink targets that were backed up
+ * @property {number} createdDirectories - Parent directories created during install
+ * @property {number} errors - Actions that failed with an error
+ */
+
 const defaultRepoRoot = path.resolve(__dirname, "..");
 let _config = null;
 
@@ -656,10 +741,14 @@ async function runInstallation({
         return;
       }
 
-      const backup = `${target}.bak.${timestamp}`;
-      emit("backup", { profile, path: target, backup, source, target });
-      summary.backedUp += 1;
-      fs.renameSync(target, backup);
+      if (!stats.isSymbolicLink()) {
+        const backup = `${target}.bak.${timestamp}`;
+        emit("backup", { profile, path: target, backup, source, target });
+        summary.backedUp += 1;
+        fs.renameSync(target, backup);
+      } else {
+        fs.unlinkSync(target);
+      }
     }
 
     const linkTarget = relativeTarget(source, target);
@@ -809,7 +898,7 @@ async function runUninstall(options) {
   process.stdout.write(`\nUninstall complete: ${removed} removed, ${skipped} skipped, ${missing} missing\n`);
 }
 
-async function runCheck(options, config) {
+async function runCheck(options, _config) {
   const lockfile = readLockfile();
 
   let linksToCheck;
