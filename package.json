@@ -1,6 +1,6 @@
 {
   "name": "saddle-cli",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "CLI that syncs AI coding tool configs (Claude, Codex, Copilot, Cursor, Gemini, OpenCode) across machines via symlinks",
   "author": "ndizazzo",
   "license": "MIT",
