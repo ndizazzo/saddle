@@ -32,17 +32,17 @@
 
 ```bash
 # Clone and set up
-git clone https://github.com/ndizazzo/saddle-cli.git ~/dev/ai
+git clone https://github.com/ndizazzo/saddle.git ~/dev/ai
 cd ~/dev/ai && pnpm install
 
 # Launch the interactive installer
-npx saddle-cli
+npx saddle
 
 # Or run non-interactively
-npx saddle-cli --yes --all        # apply everything
-npx saddle-cli --dry-run --all    # preview first
-npx saddle-cli --check            # verify sync
-npx saddle-cli --uninstall        # clean removal
+npx saddle --yes --all        # apply everything
+npx saddle --dry-run --all    # preview first
+npx saddle --check            # verify sync
+npx saddle --uninstall        # clean removal
 ```
 
 The interactive TUI detects which AI tools are installed and walks you through linking skills, agents, commands, and config files for each.
@@ -145,13 +145,13 @@ When piped or used with `--yes`, Saddle falls back to a plain-text installer. Id
 
 ```bash
 # Preview all changes
-npx saddle-cli --dry-run --all
+npx saddle --dry-run --all
 
 # Apply everything, no prompts
-npx saddle-cli --yes --all
+npx saddle --yes --all
 
 # Apply specific profiles
-npx saddle-cli --profile claude-skills-skills,cursor-directory-agents --yes
+npx saddle --profile claude-skills-skills,cursor-directory-agents --yes
 ```
 
 ---
