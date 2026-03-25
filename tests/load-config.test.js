@@ -35,8 +35,12 @@ describe("load-config", () => {
   });
 
   beforeEach(() => {
-    try { fs.unlinkSync(configPath); } catch {}
-    try { fs.rmSync(rulesDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.unlinkSync(configPath);
+    } catch {}
+    try {
+      fs.rmSync(rulesDir, { recursive: true, force: true });
+    } catch {}
     clearConfigModules();
   });
 
@@ -167,7 +171,11 @@ describe("load-config", () => {
       const mod = fresh();
       const origBundled = mod.BUNDLED_RULES_DIR;
       try {
-        Object.defineProperty(mod, "BUNDLED_RULES_DIR", { value: "/nonexistent-bundled", writable: true, configurable: true });
+        Object.defineProperty(mod, "BUNDLED_RULES_DIR", {
+          value: "/nonexistent-bundled",
+          writable: true,
+          configurable: true,
+        });
         const rules = mod.loadRules();
         assert.ok(Array.isArray(rules));
       } finally {
@@ -177,7 +185,10 @@ describe("load-config", () => {
 
     it("loads rules from YAML files in rules directory", () => {
       mkdir(rulesDir);
-      mkfile(path.join(rulesDir, "test-tool.yaml"), "tool: test\nlabel: Test Tool\nbinary: test-bin\nhome: /tmp/test\nenabled: true\nmappings:\n  - type: skills\n    source: skills\n    target: skills\n");
+      mkfile(
+        path.join(rulesDir, "test-tool.yaml"),
+        "tool: test\nlabel: Test Tool\nbinary: test-bin\nhome: /tmp/test\nenabled: true\nmappings:\n  - type: skills\n    source: skills\n    target: skills\n",
+      );
       const rules = fresh().loadRules();
       assert.strictEqual(rules.length, 1);
       assert.strictEqual(rules[0].name, "test");
@@ -195,16 +206,19 @@ describe("load-config", () => {
 
     it("preserves object binary with which and paths", () => {
       mkdir(rulesDir);
-      mkfile(path.join(rulesDir, "obj-bin.yaml"), [
-        "tool: t",
-        "home: /tmp/t",
-        "binary:",
-        "  which: mytool",
-        "  paths:",
-        "    darwin: /Applications/MyTool.app",
-        "    linux: /usr/bin/mytool",
-        "mappings: []",
-      ].join("\n"));
+      mkfile(
+        path.join(rulesDir, "obj-bin.yaml"),
+        [
+          "tool: t",
+          "home: /tmp/t",
+          "binary:",
+          "  which: mytool",
+          "  paths:",
+          "    darwin: /Applications/MyTool.app",
+          "    linux: /usr/bin/mytool",
+          "mappings: []",
+        ].join("\n"),
+      );
       const rules = fresh().loadRules();
       assert.deepStrictEqual(rules[0].binary, {
         which: "mytool",
@@ -214,14 +228,12 @@ describe("load-config", () => {
 
     it("normalizes object binary missing which to null which", () => {
       mkdir(rulesDir);
-      mkfile(path.join(rulesDir, "no-which.yaml"), [
-        "tool: t",
-        "home: /tmp/t",
-        "binary:",
-        "  paths:",
-        "    darwin: /Applications/T.app",
-        "mappings: []",
-      ].join("\n"));
+      mkfile(
+        path.join(rulesDir, "no-which.yaml"),
+        ["tool: t", "home: /tmp/t", "binary:", "  paths:", "    darwin: /Applications/T.app", "mappings: []"].join(
+          "\n",
+        ),
+      );
       const rules = fresh().loadRules();
       assert.strictEqual(rules[0].binary.which, null);
       assert.deepStrictEqual(rules[0].binary.paths, { darwin: "/Applications/T.app" });
@@ -251,7 +263,10 @@ describe("load-config", () => {
 
     it("respects enabled: false", () => {
       mkdir(rulesDir);
-      mkfile(path.join(rulesDir, "disabled.yaml"), "tool: disabled\nlabel: Disabled\nhome: /tmp/d\nenabled: false\nmappings: []\n");
+      mkfile(
+        path.join(rulesDir, "disabled.yaml"),
+        "tool: disabled\nlabel: Disabled\nhome: /tmp/d\nenabled: false\nmappings: []\n",
+      );
       const rules = fresh().loadRules();
       assert.strictEqual(rules[0].enabled, false);
     });
@@ -274,17 +289,20 @@ describe("load-config", () => {
 
     it("filters mappings missing type or source", () => {
       mkdir(rulesDir);
-      mkfile(path.join(rulesDir, "partial.yaml"), [
-        "tool: partial",
-        "label: Partial",
-        "home: /tmp/p",
-        "mappings:",
-        "  - type: skills",
-        "  - source: foo.md",
-        "  - type: file",
-        "    source: ok.md",
-        "    target: ok.md",
-      ].join("\n"));
+      mkfile(
+        path.join(rulesDir, "partial.yaml"),
+        [
+          "tool: partial",
+          "label: Partial",
+          "home: /tmp/p",
+          "mappings:",
+          "  - type: skills",
+          "  - source: foo.md",
+          "  - type: file",
+          "    source: ok.md",
+          "    target: ok.md",
+        ].join("\n"),
+      );
       const rules = fresh().loadRules();
       assert.strictEqual(rules[0].mappings.length, 1);
       assert.strictEqual(rules[0].mappings[0].source, "ok.md");
@@ -311,47 +329,112 @@ describe("load-config", () => {
       mkfile(path.join(rulesDir, "valid.yaml"), "tool: valid\nlabel: Valid\nhome: /tmp/v\nmappings: []\n");
       const rules = fresh().loadRules();
       assert.strictEqual(rules.length, 1);
-     });
-   });
+    });
+  });
 
-   describe("normalizeRule", () => {
-     it("preserves itemType from mapping when present", () => {
-       mkdir(rulesDir);
-       mkfile(path.join(rulesDir, "with-itemtype.yaml"), [
-         "tool: test",
-         "label: Test",
-         "home: /tmp/test",
-         "mappings:",
-         "  - type: skills",
-         "    source: skills",
-         "    target: skills",
-         "    itemType: skill",
-       ].join("\n"));
-       const rules = fresh().loadRules();
-       assert.strictEqual(rules.length, 1);
-       assert.strictEqual(rules[0].mappings.length, 1);
-       assert.strictEqual(rules[0].mappings[0].itemType, "skill");
-     });
+  describe("normalizeRule", () => {
+    it("preserves itemType from mapping when present", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "with-itemtype.yaml"),
+        [
+          "tool: test",
+          "label: Test",
+          "home: /tmp/test",
+          "mappings:",
+          "  - type: skills",
+          "    source: skills",
+          "    target: skills",
+          "    itemType: skill",
+        ].join("\n"),
+      );
+      const rules = fresh().loadRules();
+      assert.strictEqual(rules.length, 1);
+      assert.strictEqual(rules[0].mappings.length, 1);
+      assert.strictEqual(rules[0].mappings[0].itemType, "skill");
+    });
 
-     it("omits itemType when absent (backward compat)", () => {
-       mkdir(rulesDir);
-       mkfile(path.join(rulesDir, "no-itemtype.yaml"), [
-         "tool: test",
-         "label: Test",
-         "home: /tmp/test",
-         "mappings:",
-         "  - type: skills",
-         "    source: skills",
-         "    target: skills",
-       ].join("\n"));
-       const rules = fresh().loadRules();
-       assert.strictEqual(rules.length, 1);
-       assert.strictEqual(rules[0].mappings.length, 1);
-       assert.strictEqual(rules[0].mappings[0].itemType, undefined);
-     });
-   });
+    it("omits itemType when absent (backward compat)", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "no-itemtype.yaml"),
+        [
+          "tool: test",
+          "label: Test",
+          "home: /tmp/test",
+          "mappings:",
+          "  - type: skills",
+          "    source: skills",
+          "    target: skills",
+        ].join("\n"),
+      );
+      const rules = fresh().loadRules();
+      assert.strictEqual(rules.length, 1);
+      assert.strictEqual(rules[0].mappings.length, 1);
+      assert.strictEqual(rules[0].mappings[0].itemType, undefined);
+    });
 
-   describe("seedDefaultRules", () => {
+    it("defaults mode to 'multi-select' when not specified", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "no-mode.yaml"),
+        [
+          "tool: test",
+          "label: Test",
+          "home: /tmp/test",
+          "mappings:",
+          "  - type: skills",
+          "    source: skills",
+          "    target: skills",
+        ].join("\n"),
+      );
+      const rules = fresh().loadRules();
+      assert.strictEqual(rules.length, 1);
+      assert.strictEqual(rules[0].mode, "multi-select");
+    });
+
+    it("preserves mode 'single-select' when specified", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "single.yaml"),
+        [
+          "tool: test",
+          "label: Test",
+          "home: /tmp/test",
+          "mode: single-select",
+          "mappings:",
+          "  - type: skills",
+          "    source: skills",
+          "    target: skills",
+        ].join("\n"),
+      );
+      const rules = fresh().loadRules();
+      assert.strictEqual(rules.length, 1);
+      assert.strictEqual(rules[0].mode, "single-select");
+    });
+
+    it("treats unknown mode values as 'multi-select'", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "bad-mode.yaml"),
+        [
+          "tool: test",
+          "label: Test",
+          "home: /tmp/test",
+          "mode: bogus-value",
+          "mappings:",
+          "  - type: skills",
+          "    source: skills",
+          "    target: skills",
+        ].join("\n"),
+      );
+      const rules = fresh().loadRules();
+      assert.strictEqual(rules.length, 1);
+      assert.strictEqual(rules[0].mode, "multi-select");
+    });
+  });
+
+  describe("seedDefaultRules", () => {
     it("copies bundled rules into rules directory", () => {
       const { seedDefaultRules, BUNDLED_RULES_DIR } = fresh();
       seedDefaultRules();
@@ -363,7 +446,10 @@ describe("load-config", () => {
 
     it("does not overwrite existing rule files", () => {
       mkdir(rulesDir);
-      mkfile(path.join(rulesDir, "claude.yaml"), "tool: claude\nlabel: My Custom Claude\nhome: /custom\nmappings: []\n");
+      mkfile(
+        path.join(rulesDir, "claude.yaml"),
+        "tool: claude\nlabel: My Custom Claude\nhome: /custom\nmappings: []\n",
+      );
       const { seedDefaultRules } = fresh();
       seedDefaultRules();
       const content = fs.readFileSync(path.join(rulesDir, "claude.yaml"), "utf8");

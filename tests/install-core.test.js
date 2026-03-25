@@ -20,7 +20,7 @@ before(() => {
   testConfigPath = path.join(globalTmpDir, "config.yaml");
   testRulesDir = path.join(globalTmpDir, "rules");
   homeAlpha = path.join(globalTmpDir, "home-alpha");
-  homeBeta  = path.join(globalTmpDir, "home-beta");
+  homeBeta = path.join(globalTmpDir, "home-beta");
   homeGamma = path.join(globalTmpDir, "home-gamma");
   homeDelta = path.join(globalTmpDir, "home-delta");
   mkdir(homeAlpha);
@@ -28,66 +28,74 @@ before(() => {
   mkdir(homeGamma);
   mkdir(homeDelta);
 
-  mkfile(testConfigPath, [
-    `sourceRoot: ${globalTmpDir}`,
-    "ignore:",
-    "  - SKIP.txt",
-    "  - '*.bak.*'",
-  ].join("\n"));
+  mkfile(testConfigPath, [`sourceRoot: ${globalTmpDir}`, "ignore:", "  - SKIP.txt", "  - '*.bak.*'"].join("\n"));
 
   mkdir(testRulesDir);
-  mkfile(path.join(testRulesDir, "alpha.yaml"), [
-    "tool: alpha",
-    "label: Alpha",
-    `home: ${homeAlpha}`,
-    "enabled: true",
-    "mappings:",
-    "  - type: skills",
-    "    source: skills",
-    "    target: skills",
-  ].join("\n"));
+  mkfile(
+    path.join(testRulesDir, "alpha.yaml"),
+    [
+      "tool: alpha",
+      "label: Alpha",
+      `home: ${homeAlpha}`,
+      "enabled: true",
+      "mappings:",
+      "  - type: skills",
+      "    source: skills",
+      "    target: skills",
+    ].join("\n"),
+  );
 
-  mkfile(path.join(testRulesDir, "beta.yaml"), [
-    "tool: beta",
-    "label: Beta",
-    `home: ${homeBeta}`,
-    "enabled: true",
-    "mappings:",
-    "  - type: file",
-    "    source: agents/beta/AGENTS.md",
-    "    target: AGENTS.md",
-    "  - type: directory",
-    "    source: configs/beta",
-    "    target: .",
-  ].join("\n"));
+  mkfile(
+    path.join(testRulesDir, "beta.yaml"),
+    [
+      "tool: beta",
+      "label: Beta",
+      `home: ${homeBeta}`,
+      "enabled: true",
+      "mappings:",
+      "  - type: file",
+      "    source: agents/beta/AGENTS.md",
+      "    target: AGENTS.md",
+      "  - type: directory",
+      "    source: configs/beta",
+      "    target: .",
+    ].join("\n"),
+  );
 
-  mkfile(path.join(testRulesDir, "gamma.yaml"), [
-    "tool: gamma",
-    "label: Gamma",
-    `home: ${homeGamma}`,
-    "enabled: true",
-    "mappings:",
-    "  - type: skills",
-    "    source: skills",
-    "    target: skills",
-  ].join("\n"));
+  mkfile(
+    path.join(testRulesDir, "gamma.yaml"),
+    [
+      "tool: gamma",
+      "label: Gamma",
+      `home: ${homeGamma}`,
+      "enabled: true",
+      "mappings:",
+      "  - type: skills",
+      "    source: skills",
+      "    target: skills",
+    ].join("\n"),
+  );
 
-  mkfile(path.join(testRulesDir, "delta.yaml"), [
-    "tool: delta",
-    "label: Oh My Opencode",
-    `home: ${homeDelta}`,
-    "enabled: true",
-    "mappings:",
-    "  - type: file",
-    "    source: oh-my-opencode/oh-my-opencode.json.openai",
-    "    target: oh-my-opencode.json",
-    "  - type: file",
-    "    source: oh-my-opencode/oh-my-opencode.json.claude",
-    "    target: oh-my-opencode.json",
-    "  - type: file",
-    "    source: oh-my-opencode/oh-my-opencode.json.copilot",
-    "    target: oh-my-opencode.json",
-  ].join("\n"));
+  mkfile(
+    path.join(testRulesDir, "delta.yaml"),
+    [
+      "tool: delta",
+      "label: Oh My Opencode",
+      `home: ${homeDelta}`,
+      "enabled: true",
+      "mode: single-select",
+      "mappings:",
+      "  - type: file",
+      "    source: oh-my-opencode/oh-my-opencode.json.openai",
+      "    target: oh-my-opencode.json",
+      "  - type: file",
+      "    source: oh-my-opencode/oh-my-opencode.json.claude",
+      "    target: oh-my-opencode.json",
+      "  - type: file",
+      "    source: oh-my-opencode/oh-my-opencode.json.copilot",
+      "    target: oh-my-opencode.json",
+    ].join("\n"),
+  );
 
   process.env.SADDLE_CONFIG = testConfigPath;
   process.env.SADDLE_RULES_DIR = testRulesDir;
@@ -204,8 +212,12 @@ describe("parseArgs", () => {
 
 describe("fileExists", () => {
   let tmpDir;
-  before(() => { tmpDir = makeTempDir("saddle-fe-"); });
-  after(() => { rmrf(tmpDir); });
+  before(() => {
+    tmpDir = makeTempDir("saddle-fe-");
+  });
+  after(() => {
+    rmrf(tmpDir);
+  });
 
   it("returns true for an existing file", () => {
     const f = path.join(tmpDir, "file.txt");
@@ -234,8 +246,12 @@ describe("fileExists", () => {
 
 describe("contentMatches", () => {
   let tmpDir;
-  before(() => { tmpDir = makeTempDir("saddle-cm-"); });
-  after(() => { rmrf(tmpDir); });
+  before(() => {
+    tmpDir = makeTempDir("saddle-cm-");
+  });
+  after(() => {
+    rmrf(tmpDir);
+  });
 
   it("returns true for two files with identical content", () => {
     const a = path.join(tmpDir, "a.txt");
@@ -280,8 +296,12 @@ describe("contentMatches", () => {
 
 describe("inspectAction", () => {
   let tmpDir;
-  beforeEach(() => { tmpDir = makeTempDir("saddle-ia-"); });
-  afterEach(() => { rmrf(tmpDir); });
+  beforeEach(() => {
+    tmpDir = makeTempDir("saddle-ia-");
+  });
+  afterEach(() => {
+    rmrf(tmpDir);
+  });
 
   it("returns kind:new-link when target does not exist", () => {
     const src = path.join(tmpDir, "src.txt");
@@ -301,9 +321,9 @@ describe("inspectAction", () => {
   });
 
   it("returns kind:replace-link when target symlink points elsewhere", () => {
-    const src    = path.join(tmpDir, "src.txt");
-    const other  = path.join(tmpDir, "other.txt");
-    const tgt    = path.join(tmpDir, "tgt.txt");
+    const src = path.join(tmpDir, "src.txt");
+    const other = path.join(tmpDir, "other.txt");
+    const tgt = path.join(tmpDir, "tgt.txt");
     mkfile(src, "new");
     mkfile(other, "old");
     fs.symlinkSync(other, tgt);
@@ -349,8 +369,12 @@ describe("inspectAction", () => {
 
 describe("inspectProfile", () => {
   let tmpDir;
-  before(() => { tmpDir = makeTempDir("saddle-ip-"); });
-  after(() => { rmrf(tmpDir); });
+  before(() => {
+    tmpDir = makeTempDir("saddle-ip-");
+  });
+  after(() => {
+    rmrf(tmpDir);
+  });
 
   it("returns correct counts for a mix of action kinds", () => {
     const newSrc = path.join(tmpDir, "new-src.txt");
@@ -379,7 +403,20 @@ describe("inspectProfile", () => {
     const src = path.join(tmpDir, "cached-src.txt");
     const tgt = path.join(tmpDir, "cached-tgt.txt");
     mkfile(src, "x");
-    const fakeResult = { kind: "already-linked", label: "no change", color: "gray", source: src, target: tgt, detail: "", effectLabel: "symlink", beforePath: tgt, beforeDetail: "", afterPath: src, afterDetail: "", preview: null };
+    const fakeResult = {
+      kind: "already-linked",
+      label: "no change",
+      color: "gray",
+      source: src,
+      target: tgt,
+      detail: "",
+      effectLabel: "symlink",
+      beforePath: tgt,
+      beforeDetail: "",
+      afterPath: src,
+      afterDetail: "",
+      preview: null,
+    };
     const cache = new Map([[`${src}::${tgt}`, fakeResult]]);
     const profile = { id: "cp", actions: [{ source: src, target: tgt }] };
     const result = core.inspectProfile(profile, cache);
@@ -399,8 +436,12 @@ describe("inspectProfile", () => {
 
 describe("buildInspectionCache", () => {
   let tmpDir;
-  before(() => { tmpDir = makeTempDir("saddle-bic-"); });
-  after(() => { rmrf(tmpDir); });
+  before(() => {
+    tmpDir = makeTempDir("saddle-bic-");
+  });
+  after(() => {
+    rmrf(tmpDir);
+  });
 
   it("creates a Map with source::target keys", async () => {
     const src = path.join(tmpDir, "s.txt");
@@ -426,19 +467,33 @@ describe("buildInspectionCache", () => {
   });
 
   it("caches multiple distinct pairs", async () => {
-    const s1 = path.join(tmpDir, "s1.txt"); mkfile(s1, "1");
-    const s2 = path.join(tmpDir, "s2.txt"); mkfile(s2, "2");
+    const s1 = path.join(tmpDir, "s1.txt");
+    mkfile(s1, "1");
+    const s2 = path.join(tmpDir, "s2.txt");
+    mkfile(s2, "2");
     const t1 = path.join(tmpDir, "t1.txt");
     const t2 = path.join(tmpDir, "t2.txt");
-    const profiles = [{ id: "p", actions: [{ source: s1, target: t1 }, { source: s2, target: t2 }] }];
+    const profiles = [
+      {
+        id: "p",
+        actions: [
+          { source: s1, target: t1 },
+          { source: s2, target: t2 },
+        ],
+      },
+    ];
     assert.strictEqual((await core.buildInspectionCache(profiles)).size, 2);
   });
 });
 
 describe("discoverProfiles", () => {
   let repoRoot;
-  beforeEach(() => { repoRoot = makeTempDir("saddle-dp-"); });
-  afterEach(() => { rmrf(repoRoot); });
+  beforeEach(() => {
+    repoRoot = makeTempDir("saddle-dp-");
+  });
+  afterEach(() => {
+    rmrf(repoRoot);
+  });
 
   it("skills mapping: returns one action per subdirectory", () => {
     mkdir(path.join(repoRoot, "skills", "skill-a"));
@@ -502,15 +557,16 @@ describe("discoverProfiles", () => {
     const profiles = core.discoverProfiles(repoRoot, { alpha: false, beta: false, gamma: false, delta: true });
     const deltaProfiles = profiles.filter((p) => p.tool === "delta");
 
-    assert.deepStrictEqual(
-      deltaProfiles.map((profile) => profile.label).sort(),
-      [
-        "oh-my-opencode.json.claude",
-        "oh-my-opencode.json.copilot",
-        "oh-my-opencode.json.openai",
-      ],
+    assert.deepStrictEqual(deltaProfiles.map((profile) => profile.label).sort(), [
+      "oh-my-opencode.json.claude",
+      "oh-my-opencode.json.copilot",
+      "oh-my-opencode.json.openai",
+    ]);
+    assert.ok(
+      deltaProfiles.every(
+        (profile) => profile.description === `Links to ${path.join(homeDelta, "oh-my-opencode.json")}`,
+      ),
     );
-    assert.ok(deltaProfiles.every((profile) => profile.description === `Links to ${path.join(homeDelta, "oh-my-opencode.json")}`));
   });
 
   it("file mapping: produces no profile when source file is absent", () => {
@@ -582,12 +638,35 @@ describe("discoverProfiles", () => {
     const alpha = profiles.find((p) => p.tool === "alpha");
     assert.ok(alpha.actions[0].target.startsWith(homeAlpha));
   });
+
+  it("profiles inherit mode from their rule (defaults to multi-select)", () => {
+    mkdir(path.join(repoRoot, "skills", "skill-a"));
+    const profiles = core.discoverProfiles(repoRoot, { alpha: true, beta: false, gamma: false, delta: false });
+    const alpha = profiles.find((p) => p.tool === "alpha");
+    assert.strictEqual(alpha.mode, "multi-select");
+  });
+
+  it("profiles inherit single-select mode from their rule", () => {
+    mkfile(path.join(repoRoot, "oh-my-opencode", "oh-my-opencode.json.openai"), "{}");
+    mkfile(path.join(repoRoot, "oh-my-opencode", "oh-my-opencode.json.claude"), "{}");
+    const profiles = core.discoverProfiles(repoRoot, { alpha: false, beta: false, gamma: false, delta: true });
+    const deltaProfiles = profiles.filter((p) => p.tool === "delta");
+    assert.ok(deltaProfiles.length > 0, "should have delta profiles");
+    assert.ok(
+      deltaProfiles.every((p) => p.mode === "single-select"),
+      "all delta profiles should be single-select",
+    );
+  });
 });
 
 describe("binaryDetected", () => {
   let tmpDir;
-  beforeEach(() => { tmpDir = makeTempDir("saddle-bd-"); });
-  afterEach(() => { rmrf(tmpDir); });
+  beforeEach(() => {
+    tmpDir = makeTempDir("saddle-bd-");
+  });
+  afterEach(() => {
+    rmrf(tmpDir);
+  });
 
   it("returns false for null binary", () => {
     assert.strictEqual(core.binaryDetected(null), false);
@@ -612,7 +691,10 @@ describe("binaryDetected", () => {
   });
 
   it("returns false when platform path does not exist", () => {
-    assert.strictEqual(core.binaryDetected({ which: null, paths: { [process.platform]: path.join(tmpDir, "NoApp.app") } }), false);
+    assert.strictEqual(
+      core.binaryDetected({ which: null, paths: { [process.platform]: path.join(tmpDir, "NoApp.app") } }),
+      false,
+    );
   });
 
   it("returns false when path is only defined for another platform", () => {
@@ -625,7 +707,10 @@ describe("binaryDetected", () => {
   it("returns true via platform path even when which fails", () => {
     const appPath = path.join(tmpDir, "MyTool.app");
     mkdir(appPath);
-    assert.strictEqual(core.binaryDetected({ which: "__no_such_binary__", paths: { [process.platform]: appPath } }), true);
+    assert.strictEqual(
+      core.binaryDetected({ which: "__no_such_binary__", paths: { [process.platform]: appPath } }),
+      true,
+    );
   });
 });
 
@@ -668,11 +753,13 @@ describe("runInstallation — dry-run", () => {
   });
 
   function makeProfiles(pairs) {
-    return [{
-      id: "test-profile",
-      label: "Test Profile",
-      actions: pairs.map(([src, tgt]) => ({ source: src, target: tgt })),
-    }];
+    return [
+      {
+        id: "test-profile",
+        label: "Test Profile",
+        actions: pairs.map(([src, tgt]) => ({ source: src, target: tgt })),
+      },
+    ];
   }
 
   it("emits session-start and session-complete events", async () => {
@@ -773,9 +860,9 @@ describe("runInstallation — live", () => {
   });
 
   it("replaces an existing symlink pointing elsewhere without creating a backup", async () => {
-    const src    = path.join(srcDir, "src.txt");
-    const other  = path.join(srcDir, "other.txt");
-    const tgt    = path.join(tgtDir, "tgt.txt");
+    const src = path.join(srcDir, "src.txt");
+    const other = path.join(srcDir, "other.txt");
+    const tgt = path.join(tgtDir, "tgt.txt");
     mkfile(src, "new");
     mkfile(other, "old");
     fs.symlinkSync(other, tgt);
@@ -792,12 +879,17 @@ describe("runInstallation — live", () => {
   });
 
   it("summary.linked reflects number of created symlinks", async () => {
-    const s1 = path.join(srcDir, "s1.txt"); mkfile(s1, "1");
-    const s2 = path.join(srcDir, "s2.txt"); mkfile(s2, "2");
+    const s1 = path.join(srcDir, "s1.txt");
+    mkfile(s1, "1");
+    const s2 = path.join(srcDir, "s2.txt");
+    mkfile(s2, "2");
     const t1 = path.join(tgtDir, "t1.txt");
     const t2 = path.join(tgtDir, "t2.txt");
     const summary = await core.runInstallation({
-      selectedProfiles: makeProfiles([[s1, t1], [s2, t2]]),
+      selectedProfiles: makeProfiles([
+        [s1, t1],
+        [s2, t2],
+      ]),
       dryRun: false,
       assumeYes: true,
       onEvent: () => {},
@@ -822,20 +914,32 @@ describe("runInstallation — multi-profile", () => {
   });
 
   it("processes all profiles when multiple tool groups are selected", async () => {
-    const s1 = path.join(srcDir, "a1.txt"); mkfile(s1, "1");
-    const s2 = path.join(srcDir, "a2.txt"); mkfile(s2, "2");
-    const s3 = path.join(srcDir, "b1.txt"); mkfile(s3, "3");
-    const s4 = path.join(srcDir, "b2.txt"); mkfile(s4, "4");
+    const s1 = path.join(srcDir, "a1.txt");
+    mkfile(s1, "1");
+    const s2 = path.join(srcDir, "a2.txt");
+    mkfile(s2, "2");
+    const s3 = path.join(srcDir, "b1.txt");
+    mkfile(s3, "3");
+    const s4 = path.join(srcDir, "b2.txt");
+    mkfile(s4, "4");
 
     const selectedProfiles = [
-      { id: "toolA-skills", label: "Tool A skills", actions: [
-        { source: s1, target: path.join(tgtDirA, "a1.txt") },
-        { source: s2, target: path.join(tgtDirA, "a2.txt") },
-      ]},
-      { id: "toolB-skills", label: "Tool B skills", actions: [
-        { source: s3, target: path.join(tgtDirB, "b1.txt") },
-        { source: s4, target: path.join(tgtDirB, "b2.txt") },
-      ]},
+      {
+        id: "toolA-skills",
+        label: "Tool A skills",
+        actions: [
+          { source: s1, target: path.join(tgtDirA, "a1.txt") },
+          { source: s2, target: path.join(tgtDirA, "a2.txt") },
+        ],
+      },
+      {
+        id: "toolB-skills",
+        label: "Tool B skills",
+        actions: [
+          { source: s3, target: path.join(tgtDirB, "b1.txt") },
+          { source: s4, target: path.join(tgtDirB, "b2.txt") },
+        ],
+      },
     ];
 
     const profileStarts = [];
@@ -862,22 +966,27 @@ describe("runInstallation — multi-profile", () => {
   });
 
   it("continues processing remaining profiles when an action in the first profile errors", async () => {
-    const s1 = path.join(srcDir, "good.txt"); mkfile(s1, "good");
-    const s2 = path.join(srcDir, "bad.txt"); mkfile(s2, "bad");
-    const s3 = path.join(srcDir, "also-good.txt"); mkfile(s3, "also good");
+    const s1 = path.join(srcDir, "good.txt");
+    mkfile(s1, "good");
+    const s2 = path.join(srcDir, "bad.txt");
+    mkfile(s2, "bad");
+    const s3 = path.join(srcDir, "also-good.txt");
+    mkfile(s3, "also good");
 
     const badTarget = path.join(tgtDirA, "no-such-parent", "deep", "bad.txt");
     // Create a FILE where the parent directory needs to be, so mkdirSync will fail
     mkfile(path.join(tgtDirA, "no-such-parent"), "blocker");
 
     const selectedProfiles = [
-      { id: "toolA", label: "Tool A", actions: [
-        { source: s1, target: path.join(tgtDirA, "good.txt") },
-        { source: s2, target: badTarget },
-      ]},
-      { id: "toolB", label: "Tool B", actions: [
-        { source: s3, target: path.join(tgtDirB, "also-good.txt") },
-      ]},
+      {
+        id: "toolA",
+        label: "Tool A",
+        actions: [
+          { source: s1, target: path.join(tgtDirA, "good.txt") },
+          { source: s2, target: badTarget },
+        ],
+      },
+      { id: "toolB", label: "Tool B", actions: [{ source: s3, target: path.join(tgtDirB, "also-good.txt") }] },
     ];
 
     const errors = [];
@@ -899,7 +1008,7 @@ describe("runInstallation — multi-profile", () => {
 
     // Tool B's action still gets processed despite Tool A's error
     assert.ok(fs.lstatSync(path.join(tgtDirB, "also-good.txt")).isSymbolicLink());
-     assert.deepStrictEqual(profileCompletes, ["toolA", "toolB"]);
+    assert.deepStrictEqual(profileCompletes, ["toolA", "toolB"]);
     assert.strictEqual(summary.errors, 1);
     assert.strictEqual(summary.linked, 2);
   });
@@ -923,17 +1032,21 @@ describe("runInstallation — symlinked parent directories", () => {
     mkdir(path.join(tmpRoot, "home"));
     fs.symlinkSync(realConfigDir, symlinkedConfig);
   });
-  afterEach(() => { rmrf(tmpRoot); });
+  afterEach(() => {
+    rmrf(tmpRoot);
+  });
 
   it("creates working symlinks when target is under a symlinked parent directory", async () => {
     const skillSource = path.join(srcDir, "skills", "my-skill");
     const skillTarget = path.join(symlinkedConfig, "tool", "skills", "my-skill");
 
-    const selectedProfiles = [{
-      id: "symlinked-tool-skills",
-      label: "Symlinked Tool skills",
-      actions: [{ source: skillSource, target: skillTarget }],
-    }];
+    const selectedProfiles = [
+      {
+        id: "symlinked-tool-skills",
+        label: "Symlinked Tool skills",
+        actions: [{ source: skillSource, target: skillTarget }],
+      },
+    ];
 
     await core.runInstallation({
       selectedProfiles,
@@ -954,14 +1067,22 @@ describe("runInstallation — symlinked parent directories", () => {
     mkdir(path.join(srcDir, "skills", "skill-b"));
     mkfile(path.join(srcDir, "skills", "skill-b", "SKILL.md"), "b content");
 
-    const selectedProfiles = [{
-      id: "symlinked-tool-skills",
-      label: "Symlinked Tool skills",
-      actions: [
-        { source: path.join(srcDir, "skills", "my-skill"), target: path.join(symlinkedConfig, "tool", "skills", "my-skill") },
-        { source: path.join(srcDir, "skills", "skill-b"), target: path.join(symlinkedConfig, "tool", "skills", "skill-b") },
-      ],
-    }];
+    const selectedProfiles = [
+      {
+        id: "symlinked-tool-skills",
+        label: "Symlinked Tool skills",
+        actions: [
+          {
+            source: path.join(srcDir, "skills", "my-skill"),
+            target: path.join(symlinkedConfig, "tool", "skills", "my-skill"),
+          },
+          {
+            source: path.join(srcDir, "skills", "skill-b"),
+            target: path.join(symlinkedConfig, "tool", "skills", "skill-b"),
+          },
+        ],
+      },
+    ];
 
     const summary = await core.runInstallation({
       selectedProfiles,
@@ -978,8 +1099,12 @@ describe("runInstallation — symlinked parent directories", () => {
 
 describe("inspectAction — broken symlinks (null canonical path)", () => {
   let tmpDir;
-  beforeEach(() => { tmpDir = makeTempDir("saddle-null-cp-"); });
-  afterEach(() => { rmrf(tmpDir); });
+  beforeEach(() => {
+    tmpDir = makeTempDir("saddle-null-cp-");
+  });
+  afterEach(() => {
+    rmrf(tmpDir);
+  });
 
   it("returns replace-link when both source and target symlinks are broken", () => {
     const src = path.join(tmpDir, "src.txt");
@@ -1040,7 +1165,9 @@ describe("readLockfile / writeLockfile", () => {
     lockfilePath = path.join(globalTmpDir, "installed.json");
   });
   afterEach(() => {
-    try { fs.unlinkSync(lockfilePath); } catch {}
+    try {
+      fs.unlinkSync(lockfilePath);
+    } catch {}
   });
 
   it("writeLockfile writes valid JSON to CONFIG_DIR/installed.json", () => {
@@ -1106,7 +1233,9 @@ describe("runUninstall", () => {
   afterEach(() => {
     rmrf(srcDir);
     rmrf(tgtDir);
-    try { fs.unlinkSync(lockfilePath); } catch {}
+    try {
+      fs.unlinkSync(lockfilePath);
+    } catch {}
   });
 
   it("removes symlinks pointing into sourceRoot", async () => {
@@ -1160,7 +1289,10 @@ describe("runUninstall", () => {
   it("exits 1 when no lockfile exists", async () => {
     const originalExit = process.exit;
     let exitCode;
-    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    process.exit = (code) => {
+      exitCode = code;
+      throw new Error(`process.exit(${code})`);
+    };
     try {
       await core.runUninstall({ dryRun: false, quiet: true });
     } catch (e) {
@@ -1198,7 +1330,9 @@ describe("runCheck", () => {
   afterEach(() => {
     rmrf(srcDir);
     rmrf(tgtDir);
-    try { fs.unlinkSync(lockfilePath); } catch {}
+    try {
+      fs.unlinkSync(lockfilePath);
+    } catch {}
   });
 
   it("exits 0 when all symlinks are in sync (already-linked)", async () => {
@@ -1210,7 +1344,10 @@ describe("runCheck", () => {
 
     const originalExit = process.exit;
     let exitCode;
-    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    process.exit = (code) => {
+      exitCode = code;
+      throw new Error(`process.exit(${code})`);
+    };
     try {
       await core.runCheck({});
     } catch (e) {
@@ -1229,7 +1366,10 @@ describe("runCheck", () => {
 
     const originalExit = process.exit;
     let exitCode;
-    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    process.exit = (code) => {
+      exitCode = code;
+      throw new Error(`process.exit(${code})`);
+    };
     try {
       await core.runCheck({});
     } catch (e) {
@@ -1243,7 +1383,10 @@ describe("runCheck", () => {
   it("works without lockfile (discovers profiles, calls process.exit)", async () => {
     const originalExit = process.exit;
     let exitCode;
-    process.exit = (code) => { exitCode = code; throw new Error(`process.exit(${code})`); };
+    process.exit = (code) => {
+      exitCode = code;
+      throw new Error(`process.exit(${code})`);
+    };
     try {
       await core.runCheck({});
     } catch (e) {
@@ -1267,7 +1410,9 @@ describe("runCheck", () => {
       return origWrite.apply(process.stderr, [msg, ...args]);
     };
     const originalExit = process.exit;
-    process.exit = (code) => { throw new Error(`process.exit(${code})`); };
+    process.exit = (code) => {
+      throw new Error(`process.exit(${code})`);
+    };
     try {
       await core.runCheck({ verbose: true });
     } catch (e) {

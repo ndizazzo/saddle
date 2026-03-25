@@ -4,7 +4,15 @@ import { Box, Text } from "ink";
 import { palette } from "../theme/catalog.mjs";
 import { theme } from "../theme/index.mjs";
 import { Frame, ShortLabel, ShortPath } from "../ui/primitives.mjs";
-import { ActionLine, ActionLineHeader, actionKindMeta, itemTypeMeta, ACTION_COL, VIA_COL, TYPE_COL } from "../ui/actions.mjs";
+import {
+  ActionLine,
+  ActionLineHeader,
+  actionKindMeta,
+  itemTypeMeta,
+  ACTION_COL,
+  VIA_COL,
+  TYPE_COL,
+} from "../ui/actions.mjs";
 import { h } from "../ui/react-helpers.mjs";
 
 export function ToolList({ toolGroups, depth, toolIndex, selectedActionKeys, focusedPane, inspectProfile }) {
@@ -23,6 +31,11 @@ export function ToolList({ toolGroups, depth, toolIndex, selectedActionKeys, foc
     if (state === "all") return "[x]";
     if (state === "partial") return "[-]";
     return "[ ]";
+  };
+
+  const radioForState = (state) => {
+    if (state === "all" || state === "partial") return "(•)";
+    return "( )";
   };
 
   const isGroupSelectable = (group) => group.installed && group.enabled;
@@ -45,13 +58,7 @@ export function ToolList({ toolGroups, depth, toolIndex, selectedActionKeys, foc
     h(
       Box,
       { height: 1, justifyContent: "space-between" },
-      h(
-        Box,
-        { columnGap: 1 },
-        h(Text, {}, " "),
-        h(Text, {}, "   "),
-        h(Text, { color: theme.color.fg.dim }, "TOOL"),
-      ),
+      h(Box, { columnGap: 1 }, h(Text, {}, " "), h(Text, {}, "   "), h(Text, { color: theme.color.fg.dim }, "TOOL")),
       h(
         Box,
         { columnGap: 2 },
@@ -69,8 +76,8 @@ export function ToolList({ toolGroups, depth, toolIndex, selectedActionKeys, foc
       const badgeElement = !group.enabled
         ? h(Text, { color: palette.graySoft }, "DISABLED")
         : !group.installed
-        ? h(Text, { color: palette.red }, "NOT INSTALLED")
-        : null;
+          ? h(Text, { color: palette.red }, "NOT INSTALLED")
+          : null;
 
       return h(
         Box,
@@ -83,20 +90,47 @@ export function ToolList({ toolGroups, depth, toolIndex, selectedActionKeys, foc
         h(
           Box,
           { columnGap: 1 },
-          h(Text, { color: isFocused ? theme.color.accent.bright : theme.color.fg.dim, bold: isFocused }, isDrilled ? "▸" : isFocused ? "▍" : " "),
-          h(Text, { color: selectable ? (depth === 0 && isFocused ? theme.color.fg.primary : theme.color.fg.muted) : theme.color.fg.dim, bold: depth === 0 && isFocused && selectable }, checkboxForState(state)),
-          h(ShortLabel, { text: group.label, color: selectable ? (depth === 0 && isFocused ? "white" : "gray") : "graySoft", bold: depth === 0 && isFocused && selectable }),
+          h(
+            Text,
+            { color: isFocused ? theme.color.accent.bright : theme.color.fg.dim, bold: isFocused },
+            isDrilled ? "▸" : isFocused ? "▍" : " ",
+          ),
+          h(
+            Text,
+            {
+              color: selectable
+                ? depth === 0 && isFocused
+                  ? theme.color.fg.primary
+                  : theme.color.fg.muted
+                : theme.color.fg.dim,
+              bold: depth === 0 && isFocused && selectable,
+            },
+            group.mode === "single-select" ? radioForState(state) : checkboxForState(state),
+          ),
+          h(ShortLabel, {
+            text: group.label,
+            color: selectable ? (depth === 0 && isFocused ? "white" : "gray") : "graySoft",
+            bold: depth === 0 && isFocused && selectable,
+          }),
         ),
         badgeElement
           ? badgeElement
           : h(
               Box,
               { columnGap: 2 },
-              h(Box, { width: 6, justifyContent: "flex-end" },
+              h(
+                Box,
+                { width: 6, justifyContent: "flex-end" },
                 h(Text, { color: theme.color.fg.muted }, `${counts.existing}`),
               ),
-              h(Box, { width: 5, justifyContent: "flex-end" },
-                h(Text, { color: counts.actions > 0 ? theme.color.accent.primary : theme.color.fg.dim }, `${counts.actions}`),
+              h(
+                Box,
+                { width: 5, justifyContent: "flex-end" },
+                h(
+                  Text,
+                  { color: counts.actions > 0 ? theme.color.accent.primary : theme.color.fg.dim },
+                  `${counts.actions}`,
+                ),
               ),
             ),
       );
@@ -145,7 +179,7 @@ export function ToolDetail({ toolGroups, toolIndex, inspectProfile, layout }) {
   const dimColor = isDisabled ? theme.color.fg.dim : theme.color.fg.muted;
   const titleColor = isDisabled ? theme.color.fg.dim : theme.color.fg.primary;
   const summary = `${previewData.counts.total} actions • ${previewData.counts.create} create • ${previewData.counts.replace} replace • ${previewData.counts.noChange} no change`;
-  const maxActionLines = Math.max(1, layout.previewLineLimit - (previewData.profiles.length * 2) - 9);
+  const maxActionLines = Math.max(1, layout.previewLineLimit - previewData.profiles.length * 2 - 9);
   const visibleActions = previewData.actions.slice(0, maxActionLines);
   const hiddenBelow = Math.max(0, previewData.actions.length - visibleActions.length);
 
@@ -155,21 +189,33 @@ export function ToolDetail({ toolGroups, toolIndex, inspectProfile, layout }) {
     h(Text, { color: titleColor, bold: !isDisabled }, previewData.title),
     isDisabled ? h(Text, { color: palette.graySoft }, "This rule is disabled. Edit the rule file to re-enable.") : null,
     h(Box, { height: 1 }),
-    ...previewData.profiles.map((profile) => h(
-      Box,
-      { key: `profile-meta-${profile.id}`, flexDirection: "column", marginBottom: 1 },
-      h(Text, { color: titleColor }, profile.label),
-      h(Text, { color: dimColor }, profile.description),
-    )),
+    ...previewData.profiles.map((profile) =>
+      h(
+        Box,
+        { key: `profile-meta-${profile.id}`, flexDirection: "column", marginBottom: 1 },
+        h(Text, { color: titleColor }, profile.label),
+        h(Text, { color: dimColor }, profile.description),
+      ),
+    ),
     h(Text, { color: dimColor }, summary),
     h(Box, { height: 1 }),
     h(ActionLineHeader, null),
-    ...visibleActions.map((action, index) => h(ActionLine, { key: `tool-detail-action-${index}-${action.target}-${action.kind}`, action, dimmed: isDisabled })),
+    ...visibleActions.map((action, index) =>
+      h(ActionLine, { key: `tool-detail-action-${index}-${action.target}-${action.kind}`, action, dimmed: isDisabled }),
+    ),
     hiddenBelow > 0 ? h(Text, { color: theme.color.fg.dim }, `▼ ${hiddenBelow} more below`) : null,
   );
 }
 
-export function ActionSelector({ toolGroups, toolIndex, flatActions, selectedActionKeys, actionIndex, actionScrollOffset, layout }) {
+export function ActionSelector({
+  toolGroups,
+  toolIndex,
+  flatActions,
+  selectedActionKeys,
+  actionIndex,
+  actionScrollOffset,
+  layout,
+}) {
   const group = toolGroups[toolIndex] || null;
   if (!group) {
     return h(
@@ -179,35 +225,28 @@ export function ActionSelector({ toolGroups, toolIndex, flatActions, selectedAct
     );
   }
 
-  const profileIntroLines = group.profiles.length === 1
-    ? [group.profiles[0].description]
-    : group.profiles.map((profile) => `${profile.label}: ${profile.description}`);
+  const profileIntroLines =
+    group.profiles.length === 1
+      ? [group.profiles[0].description]
+      : group.profiles.map((profile) => `${profile.label}: ${profile.description}`);
 
   const actionAreaHeight = Math.max(1, layout.mainHeight - profileIntroLines.length - 8);
   const visibleActions = flatActions.slice(actionScrollOffset, actionScrollOffset + actionAreaHeight);
   const hiddenAbove = actionScrollOffset;
   const hiddenBelow = Math.max(0, flatActions.length - actionScrollOffset - visibleActions.length);
 
-
-
   const columnHeader = h(
-     Box,
-     { key: "col-header", height: 1, justifyContent: "space-between" },
-     h(
-       Box,
-       { columnGap: 1 },
-       h(Text, {}, " "),
-       h(Text, {}, "   "),
-       h(Text, { color: theme.color.fg.dim }, "NAME"),
-     ),
-     h(
-       Box,
-       { columnGap: 2 },
-       h(Box, { width: VIA_COL },    h(Text, { color: theme.color.fg.dim }, "VIA")),
-       h(Box, { width: TYPE_COL },   h(Text, { color: theme.color.fg.dim }, "TYPE")),
-       h(Box, { width: ACTION_COL }, h(Text, { color: theme.color.fg.dim }, "ACTION")),
-     ),
-   );
+    Box,
+    { key: "col-header", height: 1, justifyContent: "space-between" },
+    h(Box, { columnGap: 1 }, h(Text, {}, " "), h(Text, {}, "   "), h(Text, { color: theme.color.fg.dim }, "NAME")),
+    h(
+      Box,
+      { columnGap: 2 },
+      h(Box, { width: VIA_COL }, h(Text, { color: theme.color.fg.dim }, "VIA")),
+      h(Box, { width: TYPE_COL }, h(Text, { color: theme.color.fg.dim }, "TYPE")),
+      h(Box, { width: ACTION_COL }, h(Text, { color: theme.color.fg.dim }, "ACTION")),
+    ),
+  );
 
   const rows = [];
   let lastProfileId = null;
@@ -224,29 +263,43 @@ export function ActionSelector({ toolGroups, toolIndex, flatActions, selectedAct
     }
 
     const type = itemTypeMeta(item.inspectedAction.itemType);
-    rows.push(h(
-      Box,
-      {
-        key: item.key,
-        height: 1,
-        justifyContent: "space-between",
-        backgroundColor: isFocused ? theme.color.selectionBg : undefined,
-      },
+    rows.push(
       h(
         Box,
-        { columnGap: 1 },
-        h(Text, { color: isFocused ? theme.color.accent.bright : theme.color.fg.dim, bold: isFocused }, isFocused ? "▍" : " "),
-        h(Text, { color: isSelected ? theme.color.accent.primary : theme.color.fg.muted }, isSelected ? "[x]" : "[ ]"),
-        h(Text, { color: isFocused ? theme.color.fg.primary : theme.color.fg.muted, bold: isFocused }, targetBasename),
+        {
+          key: item.key,
+          height: 1,
+          justifyContent: "space-between",
+          backgroundColor: isFocused ? theme.color.selectionBg : undefined,
+        },
+        h(
+          Box,
+          { columnGap: 1 },
+          h(
+            Text,
+            { color: isFocused ? theme.color.accent.bright : theme.color.fg.dim, bold: isFocused },
+            isFocused ? "▍" : " ",
+          ),
+          h(
+            Text,
+            { color: isSelected ? theme.color.accent.primary : theme.color.fg.muted },
+            group.mode === "single-select" ? (isSelected ? "(•)" : "( )") : isSelected ? "[x]" : "[ ]",
+          ),
+          h(
+            Text,
+            { color: isFocused ? theme.color.fg.primary : theme.color.fg.muted, bold: isFocused },
+            targetBasename,
+          ),
+        ),
+        h(
+          Box,
+          { columnGap: 2 },
+          h(Box, { width: VIA_COL }, h(Text, { color: theme.color.fg.dim }, effectLabel)),
+          h(Box, { width: TYPE_COL }, h(Text, { color: type.color }, type.label)),
+          h(Box, { width: ACTION_COL }, h(Text, { color: meta.color, bold: true }, meta.label)),
+        ),
       ),
-       h(
-         Box,
-         { columnGap: 2 },
-         h(Box, { width: VIA_COL },    h(Text, { color: theme.color.fg.dim }, effectLabel)),
-         h(Box, { width: TYPE_COL },   h(Text, { color: type.color }, type.label)),
-         h(Box, { width: ACTION_COL }, h(Text, { color: meta.color, bold: true }, meta.label)),
-       ),
-    ));
+    );
   }
 
   return h(
@@ -282,7 +335,20 @@ export function SourceDefinitions({ sourceRoot, configPath, focused }) {
   );
 }
 
-export function SelectionScreen({ toolGroups, depth, toolIndex, selectedActionKeys, inspectProfile, sourceRoot, configPath, focusedPane, layout, flatActions, actionIndex, actionScrollOffset }) {
+export function SelectionScreen({
+  toolGroups,
+  depth,
+  toolIndex,
+  selectedActionKeys,
+  inspectProfile,
+  sourceRoot,
+  configPath,
+  focusedPane,
+  layout,
+  flatActions,
+  actionIndex,
+  actionScrollOffset,
+}) {
   return h(
     Box,
     { columnGap: 1, height: layout.mainHeight },
@@ -297,7 +363,15 @@ export function SelectionScreen({ toolGroups, depth, toolIndex, selectedActionKe
       { width: layout.rightWidth, flexDirection: "column" },
       depth === 0
         ? h(ToolDetail, { toolGroups, toolIndex, inspectProfile, layout })
-        : h(ActionSelector, { toolGroups, toolIndex, flatActions, selectedActionKeys, actionIndex, actionScrollOffset, layout }),
+        : h(ActionSelector, {
+            toolGroups,
+            toolIndex,
+            flatActions,
+            selectedActionKeys,
+            actionIndex,
+            actionScrollOffset,
+            layout,
+          }),
     ),
   );
 }

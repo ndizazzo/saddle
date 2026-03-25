@@ -3,6 +3,7 @@ label: OpenCode
 binary: opencode
 home: ~/.config/opencode
 enabled: true
+mode: multi-select
 
 mappings:
   - type: file
