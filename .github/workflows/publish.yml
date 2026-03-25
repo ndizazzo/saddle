@@ -25,6 +25,20 @@ jobs:
 
       - run: pnpm test
 
+      - name: Check if version already published
+        id: version-check
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "Package version: ${PACKAGE_VERSION}"
+          if npm show saddle-cli@${PACKAGE_VERSION} version --json 2>/dev/null; then
+            echo "Version ${PACKAGE_VERSION} already exists on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version ${PACKAGE_VERSION} not found on npm — proceeding with publish."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - run: pnpm publish --no-git-checks --access public
+        if: steps.version-check.outputs.skip != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
