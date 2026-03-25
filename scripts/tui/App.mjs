@@ -4,12 +4,30 @@ import { Box, useApp, useInput } from "ink";
 import { theme } from "./theme/index.mjs";
 import { groupByTool } from "./ui/format.mjs";
 import { ChromeBar, FooterBar } from "./ui/chrome.mjs";
-import { SelectionScreen, ConfirmScreen, PathEditOverlay, RunScreen, LoadingScreen, DiffOverlay } from "./components/index.mjs";
+import {
+  SelectionScreen,
+  ConfirmScreen,
+  PathEditOverlay,
+  RunScreen,
+  LoadingScreen,
+  DiffOverlay,
+} from "./components/index.mjs";
 import { h } from "./ui/react-helpers.mjs";
 
 const standaloneProfileLabel = (profile) => `${profile.toolLabel} / ${profile.label}`;
 
-export function InstallerApp({ profiles, options, initialSelectedIds, runInstallation, inspectProfile, buildInspectionCache, sourceRoot, configPath, writeSourceRoot, onFinish }) {
+export function InstallerApp({
+  profiles,
+  options,
+  initialSelectedIds,
+  runInstallation,
+  inspectProfile,
+  buildInspectionCache,
+  sourceRoot,
+  configPath,
+  writeSourceRoot,
+  onFinish,
+}) {
   const { exit } = useApp();
   const [stage, setStage] = useState("loading");
   const [inspectionCache, setInspectionCache] = useState(null);
@@ -21,12 +39,21 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
 
     const keys = new Set();
     const selectedProfileIds = new Set(initialSelectedIds);
+    const singleSelectUsed = new Set();
 
     for (const profile of profiles) {
       if (profile.informational || profile.installed === false || profile.enabled === false) continue;
       if (!selectedProfileIds.has(profile.id)) continue;
-      for (const action of profile.actions) {
-        keys.add(`${profile.id}::${action.target}`);
+      if (profile.mode === "single-select") {
+        if (singleSelectUsed.has(profile.tool)) continue;
+        if (profile.actions.length > 0) {
+          keys.add(`${profile.id}::${profile.actions[0].target}`);
+          singleSelectUsed.add(profile.tool);
+        }
+      } else {
+        for (const action of profile.actions) {
+          keys.add(`${profile.id}::${action.target}`);
+        }
       }
     }
 
@@ -38,7 +65,15 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
   const [actionScrollOffset, setActionScrollOffset] = useState(0);
   const [logs, setLogs] = useState([]);
   const [prompt, setPrompt] = useState(null);
-  const [summary, setSummary] = useState({ totalActions: 0, completedActions: 0, linked: 0, skipped: 0, unchanged: 0, backedUp: 0, createdDirectories: 0 });
+  const [summary, setSummary] = useState({
+    totalActions: 0,
+    completedActions: 0,
+    linked: 0,
+    skipped: 0,
+    unchanged: 0,
+    backedUp: 0,
+    createdDirectories: 0,
+  });
   const [currentProfile, setCurrentProfile] = useState(null);
   const [completedProfileIds, setCompletedProfileIds] = useState(new Set());
   const [done, setDone] = useState(false);
@@ -72,6 +107,22 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
             }
           }
         }
+
+        // Enforce single-select: keep first linked item per group, or auto-select first if none linked.
+        const groups = groupByTool(profiles.filter((p) => !p.informational));
+        for (const group of groups) {
+          if (group.mode !== "single-select") continue;
+          const groupKeys = group.profiles
+            .filter((p) => p.installed !== false && p.enabled !== false)
+            .flatMap((p) => p.actions.map((a) => `${p.id}::${a.target}`));
+          const selectedInGroup = groupKeys.filter((k) => activeKeys.has(k));
+          if (selectedInGroup.length > 1) {
+            for (let i = 1; i < selectedInGroup.length; i++) activeKeys.delete(selectedInGroup[i]);
+          } else if (selectedInGroup.length === 0 && groupKeys.length > 0) {
+            activeKeys.add(groupKeys[0]);
+          }
+        }
+
         setSelectedActionKeys(activeKeys);
       }
 
@@ -86,15 +137,23 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
   );
 
   const toolGroups = useMemo(() => groupByTool(profiles.filter((profile) => !profile.informational)), [profiles]);
-  const allActionKeys = useMemo(() => profiles
-    .filter((profile) => !profile.informational && profile.installed !== false && profile.enabled !== false)
-    .flatMap((profile) => profile.actions.map((action) => `${profile.id}::${action.target}`)), [profiles]);
-  const selectedProfiles = useMemo(() => profiles
-    .map((profile) => ({
-      ...profile,
-      actions: profile.actions.filter((action) => selectedActionKeys.has(`${profile.id}::${action.target}`)),
-    }))
-    .filter((profile) => profile.actions.length > 0), [profiles, selectedActionKeys]);
+  const allActionKeys = useMemo(
+    () =>
+      profiles
+        .filter((profile) => !profile.informational && profile.installed !== false && profile.enabled !== false)
+        .flatMap((profile) => profile.actions.map((action) => `${profile.id}::${action.target}`)),
+    [profiles],
+  );
+  const selectedProfiles = useMemo(
+    () =>
+      profiles
+        .map((profile) => ({
+          ...profile,
+          actions: profile.actions.filter((action) => selectedActionKeys.has(`${profile.id}::${action.target}`)),
+        }))
+        .filter((profile) => profile.actions.length > 0),
+    [profiles, selectedActionKeys],
+  );
   const confirmCanApply = useMemo(() => {
     if (!inspectionCache || selectedProfiles.length === 0) return false;
     return selectedProfiles.some((profile) => {
@@ -123,7 +182,8 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
     return items;
   }, [toolGroups, toolIndex, inspectProfileFn, inspectionCache]);
 
-  const progressPercent = summary.totalActions > 0 ? Math.round((summary.completedActions / summary.totalActions) * 100) : 0;
+  const progressPercent =
+    summary.totalActions > 0 ? Math.round((summary.completedActions / summary.totalActions) * 100) : 0;
   const totalHeight = Math.max(process.stdout.rows || 24, 24);
   const totalWidth = process.stdout.columns || 80;
   const mainHeight = Math.max(18, totalHeight - 6);
@@ -165,183 +225,269 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
     }
   }, [actionIndex, actionScrollOffset, depth, layout.mainHeight, toolGroups, toolIndex]);
 
-  useInput((input, key) => {
-    if (stage === "select") {
-      if (input === "q") {
-        onFinish({ completed: false });
-        exit();
-        return;
-      }
-
-      if (depth === 0) {
-        if (key.tab) {
-          setFocusedPane((current) => current === "tools" ? "source" : "tools");
+  useInput(
+    (input, key) => {
+      if (stage === "select") {
+        if (input === "q") {
+          onFinish({ completed: false });
+          exit();
           return;
         }
 
-        if (focusedPane === "source") {
-          if (key.return) { setEditingSourceRoot(true); return; }
-          return;
+        if (depth === 0) {
+          if (key.tab) {
+            setFocusedPane((current) => (current === "tools" ? "source" : "tools"));
+            return;
+          }
+
+          if (focusedPane === "source") {
+            if (key.return) {
+              setEditingSourceRoot(true);
+              return;
+            }
+            return;
+          }
+
+          if (toolGroups.length === 0) {
+            if (input === "a") {
+              setSelectedActionKeys(new Set(allActionKeys));
+              return;
+            }
+            if (input === "n") {
+              setSelectedActionKeys(new Set());
+            }
+            return;
+          }
+
+          if (key.upArrow) {
+            setToolIndex((current) => Math.max(0, current - 1));
+            return;
+          }
+          if (key.downArrow) {
+            setToolIndex((current) => Math.min(toolGroups.length - 1, current + 1));
+            return;
+          }
+
+          if (key.rightArrow || key.return) {
+            const group = toolGroups[toolIndex];
+            const groupActionKeys = group
+              ? group.profiles
+                  .filter((p) => p.installed !== false && p.enabled !== false)
+                  .flatMap((p) => p.actions.map((a) => `${p.id}::${a.target}`))
+              : [];
+            if (group && group.enabled !== false && groupActionKeys.length > 0) {
+              setDepth(1);
+              setActionIndex(0);
+              setActionScrollOffset(0);
+            }
+            return;
+          }
+
+          if (input === "s" && key.ctrl) {
+            if (selectedActionKeys.size > 0) setStage("confirm");
+            return;
+          }
+
+          if (input === " ") {
+            const group = toolGroups[toolIndex];
+            if (!group || !group.installed || group.enabled === false) return;
+            const groupActionKeys = group.profiles
+              .filter((p) => p.installed !== false && p.enabled !== false)
+              .flatMap((p) => p.actions.map((a) => `${p.id}::${a.target}`));
+            if (group.mode === "single-select") {
+              setSelectedActionKeys((current) => {
+                const next = new Set(current);
+                const hasAny = groupActionKeys.some((k) => current.has(k));
+                if (hasAny) {
+                  for (const k of groupActionKeys) next.delete(k);
+                } else if (groupActionKeys.length > 0) {
+                  next.add(groupActionKeys[0]);
+                }
+                return next;
+              });
+            } else {
+              setSelectedActionKeys((current) => {
+                const next = new Set(current);
+                const shouldSelect = !groupActionKeys.every((k) => current.has(k));
+                for (const k of groupActionKeys) {
+                  if (shouldSelect) next.add(k);
+                  else next.delete(k);
+                }
+                return next;
+              });
+            }
+            return;
+          }
+
+          if (input === "a") {
+            setSelectedActionKeys((current) => {
+              const next = new Set();
+              for (const g of toolGroups) {
+                if (!g.installed || g.enabled === false) continue;
+                const gKeys = g.profiles
+                  .filter((p) => p.installed !== false && p.enabled !== false)
+                  .flatMap((p) => p.actions.map((a) => `${p.id}::${a.target}`));
+                if (g.mode === "single-select") {
+                  const existing = gKeys.find((k) => current.has(k));
+                  if (existing) next.add(existing);
+                  else if (gKeys.length > 0) next.add(gKeys[0]);
+                } else {
+                  for (const k of gKeys) next.add(k);
+                }
+              }
+              return next;
+            });
+            return;
+          }
+          if (input === "n") {
+            setSelectedActionKeys(new Set());
+            return;
+          }
         }
 
-        if (toolGroups.length === 0) {
-          if (input === "a") { setSelectedActionKeys(new Set(allActionKeys)); return; }
-          if (input === "n") { setSelectedActionKeys(new Set()); }
-          return;
-        }
-
-        if (key.upArrow) { setToolIndex((current) => Math.max(0, current - 1)); return; }
-        if (key.downArrow) { setToolIndex((current) => Math.min(toolGroups.length - 1, current + 1)); return; }
-
-        if (key.rightArrow || key.return) {
+        if (depth === 1) {
           const group = toolGroups[toolIndex];
           const groupActionKeys = group
-            ? group.profiles.filter((p) => p.installed !== false && p.enabled !== false).flatMap((p) => p.actions.map((a) => `${p.id}::${a.target}`))
+            ? group.profiles
+                .filter((p) => p.installed !== false && p.enabled !== false)
+                .flatMap((p) => p.actions.map((a) => `${p.id}::${a.target}`))
             : [];
-          if (group && group.enabled !== false && groupActionKeys.length > 0) {
-            setDepth(1);
+          const hasActions = flatActions.length > 0;
+
+          if (key.upArrow) {
+            if (hasActions) setActionIndex((current) => Math.max(0, current - 1));
+            return;
+          }
+          if (key.downArrow) {
+            if (hasActions) setActionIndex((current) => Math.min(flatActions.length - 1, current + 1));
+            return;
+          }
+
+          if (key.leftArrow || key.escape || input === "\u001b") {
+            setDepth(0);
             setActionIndex(0);
             setActionScrollOffset(0);
+            return;
           }
-          return;
-        }
 
-        if (input === "s" && key.ctrl) {
-          if (selectedActionKeys.size > 0) setStage("confirm");
-          return;
-        }
+          if (input === "s" && key.ctrl) {
+            if (selectedActionKeys.size > 0) setStage("confirm");
+            return;
+          }
 
-        if (input === " ") {
-          const group = toolGroups[toolIndex];
-          if (!group || !group.installed || group.enabled === false) return;
-          const groupActionKeys = group.profiles
-            .filter((p) => p.installed !== false && p.enabled !== false)
-            .flatMap((p) => p.actions.map((a) => `${p.id}::${a.target}`));
-          setSelectedActionKeys((current) => {
-            const next = new Set(current);
-            const shouldSelect = !groupActionKeys.every((k) => current.has(k));
-            for (const k of groupActionKeys) {
-              if (shouldSelect) next.add(k); else next.delete(k);
+          if (input === " ") {
+            const focusedAction = flatActions[actionIndex];
+            if (!focusedAction) return;
+            if (group?.mode === "single-select") {
+              setSelectedActionKeys((current) => {
+                const next = new Set(current);
+                if (next.has(focusedAction.key)) {
+                  next.delete(focusedAction.key);
+                } else {
+                  for (const k of groupActionKeys) next.delete(k);
+                  next.add(focusedAction.key);
+                }
+                return next;
+              });
+            } else {
+              setSelectedActionKeys((current) => {
+                const next = new Set(current);
+                if (next.has(focusedAction.key)) next.delete(focusedAction.key);
+                else next.add(focusedAction.key);
+                return next;
+              });
             }
-            return next;
-          });
-          return;
-        }
+            return;
+          }
 
-        if (input === "a") { setSelectedActionKeys(new Set(allActionKeys)); return; }
-        if (input === "n") { setSelectedActionKeys(new Set()); return; }
+          if (input === "a") {
+            if (group?.mode === "single-select") {
+              setSelectedActionKeys((current) => {
+                const next = new Set(current);
+                const hasAny = groupActionKeys.some((k) => current.has(k));
+                if (!hasAny && groupActionKeys.length > 0) {
+                  next.add(groupActionKeys[0]);
+                }
+                return next;
+              });
+            } else {
+              setSelectedActionKeys((current) => {
+                const next = new Set(current);
+                for (const k of groupActionKeys) next.add(k);
+                return next;
+              });
+            }
+            return;
+          }
+
+          if (input === "n") {
+            setSelectedActionKeys((current) => {
+              const next = new Set(current);
+              for (const k of groupActionKeys) next.delete(k);
+              return next;
+            });
+            return;
+          }
+
+          if (input === "d") {
+            const focusedAction = flatActions[actionIndex];
+            if (!focusedAction) return;
+            const inspected = focusedAction.inspectedAction;
+            const isDiffable = inspected.kind === "replace-diff" || inspected.kind === "replace-link";
+            if (!isDiffable) return;
+            setDiffModal({
+              beforePath: inspected.beforePath,
+              afterPath: inspected.afterPath,
+              label: path.basename(focusedAction.action.target),
+            });
+            return;
+          }
+        }
       }
 
-      if (depth === 1) {
-        const group = toolGroups[toolIndex];
-        const groupActionKeys = group
-          ? group.profiles.filter((p) => p.installed !== false && p.enabled !== false).flatMap((p) => p.actions.map((a) => `${p.id}::${a.target}`))
-          : [];
-        const hasActions = flatActions.length > 0;
-
-        if (key.upArrow) { if (hasActions) setActionIndex((current) => Math.max(0, current - 1)); return; }
-        if (key.downArrow) { if (hasActions) setActionIndex((current) => Math.min(flatActions.length - 1, current + 1)); return; }
-
-        if (key.leftArrow || key.escape || input === "\u001b") {
-          setDepth(0);
-          setActionIndex(0);
-          setActionScrollOffset(0);
+      if (stage === "confirm") {
+        if (key.return) {
+          if (confirmCanApply) setStage("run");
           return;
         }
-
-        if (input === "s" && key.ctrl) {
-          if (selectedActionKeys.size > 0) setStage("confirm");
-          return;
-        }
-
-        if (input === " ") {
-          const focusedAction = flatActions[actionIndex];
-          if (!focusedAction) return;
-          setSelectedActionKeys((current) => {
-            const next = new Set(current);
-            if (next.has(focusedAction.key)) next.delete(focusedAction.key);
-            else next.add(focusedAction.key);
-            return next;
-          });
-          return;
-        }
-
-        if (input === "a") {
-          setSelectedActionKeys((current) => {
-            const next = new Set(current);
-            for (const k of groupActionKeys) next.add(k);
-            return next;
-          });
-          return;
-        }
-
-        if (input === "n") {
-          setSelectedActionKeys((current) => {
-            const next = new Set(current);
-            for (const k of groupActionKeys) next.delete(k);
-            return next;
-          });
-          return;
-        }
-
-        if (input === "d") {
-          const focusedAction = flatActions[actionIndex];
-          if (!focusedAction) return;
-          const inspected = focusedAction.inspectedAction;
-          const isDiffable = inspected.kind === "replace-diff" || inspected.kind === "replace-link";
-          if (!isDiffable) return;
-          setDiffModal({
-            beforePath: inspected.beforePath,
-            afterPath: inspected.afterPath,
-            label: path.basename(focusedAction.action.target),
-          });
+        if (key.escape || input === "\u001b" || key.backspace || input === "q") {
+          setStage("select");
           return;
         }
       }
-    }
 
-    if (stage === "confirm") {
-      if (key.return) {
-        if (confirmCanApply) setStage("run");
-        return;
+      if (done && (input === "q" || key.return)) {
+        onFinish({ completed: !error, error, summary });
+        exit();
       }
-      if (key.escape || input === "\u001b" || key.backspace || input === "q") {
-        setStage("select");
-        return;
-      }
-    }
-
-    if (done && (input === "q" || key.return)) {
-      onFinish({ completed: !error, error, summary });
-      exit();
-    }
-  }, { isActive: !editingSourceRoot && !diffModal });
+    },
+    { isActive: !editingSourceRoot && !diffModal },
+  );
 
   const handleSourceRootSubmit = (newPath) => {
-    const expanded = newPath.startsWith("~/")
-      ? newPath.replace("~", process.env.HOME || "")
-      : newPath;
+    const expanded = newPath.startsWith("~/") ? newPath.replace("~", process.env.HOME || "") : newPath;
     const finalPath = expanded || liveSourceRoot;
     writeSourceRoot(finalPath);
     setLiveSourceRoot(finalPath);
     setEditingSourceRoot(false);
   };
 
-   useEffect(() => {
-     if (stage !== "run" || startedRef.current) return;
-     startedRef.current = true;
- 
-     const profilesToInstall = selectedProfiles;
+  useEffect(() => {
+    if (stage !== "run" || startedRef.current) return;
+    startedRef.current = true;
+
+    const profilesToInstall = selectedProfiles;
 
     const appendLog = (kind, message) => {
       sequenceRef.current += 1;
       setLogs((current) => [...current, { kind, message, sequence: sequenceRef.current }]);
     };
 
-    const confirmReplacement = (info) => new Promise((resolve) => {
-      promptResolverRef.current = resolve;
-      setPrompt(info);
-    });
+    const confirmReplacement = (info) =>
+      new Promise((resolve) => {
+        promptResolverRef.current = resolve;
+        setPrompt(info);
+      });
 
     const begin = async () => {
       try {
@@ -358,16 +504,69 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
               appendLog("info", `Starting ${event.selectedProfiles.length} profile(s).`);
               return;
             }
-            if (event.type === "profile-start") { appendLog("info", `Profile: ${standaloneProfileLabel(event.profile)}`); return; }
-            if (event.type === "profile-complete") { setCompletedProfileIds((prev) => new Set([...prev, event.profile.id])); return; }
-            if (event.type === "mkdir") { appendLog("mkdir", `mkdir ${event.path}`); setSummary((current) => ({ ...current, createdDirectories: current.createdDirectories + 1 })); return; }
-            if (event.type === "ok") { appendLog("ok", `ok ${event.target}`); setSummary((current) => ({ ...current, completedActions: current.completedActions + 1, unchanged: current.unchanged + 1 })); return; }
-            if (event.type === "prompt") { const mode = event.dryRun ? "would prompt" : event.autoConfirm ? "auto confirm" : "needs confirmation"; appendLog("prompt", `${mode}: ${event.target}`); return; }
-            if (event.type === "skip") { appendLog("skip", `skip ${event.target}`); setSummary((current) => ({ ...current, completedActions: current.completedActions + 1, skipped: current.skipped + 1 })); return; }
-            if (event.type === "backup") { appendLog("backup", `backup ${event.path} -> ${event.backup}`); setSummary((current) => ({ ...current, backedUp: current.backedUp + 1 })); return; }
-            if (event.type === "link") { appendLog("link", `link ${event.target} -> ${event.linkTarget}`); setSummary((current) => ({ ...current, completedActions: current.completedActions + 1, linked: current.linked + 1 })); return; }
-            if (event.type === "error") { appendLog("error", `error ${event.target}: ${event.message}`); setSummary((current) => ({ ...current, completedActions: current.completedActions + 1, errors: (current.errors || 0) + 1 })); return; }
-            if (event.type === "session-complete") { setSummary(event.summary); appendLog("complete", "Install session complete."); }
+            if (event.type === "profile-start") {
+              appendLog("info", `Profile: ${standaloneProfileLabel(event.profile)}`);
+              return;
+            }
+            if (event.type === "profile-complete") {
+              setCompletedProfileIds((prev) => new Set([...prev, event.profile.id]));
+              return;
+            }
+            if (event.type === "mkdir") {
+              appendLog("mkdir", `mkdir ${event.path}`);
+              setSummary((current) => ({ ...current, createdDirectories: current.createdDirectories + 1 }));
+              return;
+            }
+            if (event.type === "ok") {
+              appendLog("ok", `ok ${event.target}`);
+              setSummary((current) => ({
+                ...current,
+                completedActions: current.completedActions + 1,
+                unchanged: current.unchanged + 1,
+              }));
+              return;
+            }
+            if (event.type === "prompt") {
+              const mode = event.dryRun ? "would prompt" : event.autoConfirm ? "auto confirm" : "needs confirmation";
+              appendLog("prompt", `${mode}: ${event.target}`);
+              return;
+            }
+            if (event.type === "skip") {
+              appendLog("skip", `skip ${event.target}`);
+              setSummary((current) => ({
+                ...current,
+                completedActions: current.completedActions + 1,
+                skipped: current.skipped + 1,
+              }));
+              return;
+            }
+            if (event.type === "backup") {
+              appendLog("backup", `backup ${event.path} -> ${event.backup}`);
+              setSummary((current) => ({ ...current, backedUp: current.backedUp + 1 }));
+              return;
+            }
+            if (event.type === "link") {
+              appendLog("link", `link ${event.target} -> ${event.linkTarget}`);
+              setSummary((current) => ({
+                ...current,
+                completedActions: current.completedActions + 1,
+                linked: current.linked + 1,
+              }));
+              return;
+            }
+            if (event.type === "error") {
+              appendLog("error", `error ${event.target}: ${event.message}`);
+              setSummary((current) => ({
+                ...current,
+                completedActions: current.completedActions + 1,
+                errors: (current.errors || 0) + 1,
+              }));
+              return;
+            }
+            if (event.type === "session-complete") {
+              setSummary(event.summary);
+              appendLog("complete", "Install session complete.");
+            }
           },
         });
 
@@ -380,41 +579,57 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
       }
     };
 
-     void begin();
-   }, [selectedProfiles, options.dryRun, runInstallation, stage]);
+    void begin();
+  }, [selectedProfiles, options.dryRun, runInstallation, stage]);
 
-  const content = stage === "loading"
-    ? h(LoadingScreen, { scanProgress, totalHeight })
-    : stage === "select"
-    ? h(SelectionScreen, { toolGroups, depth, toolIndex, selectedActionKeys, inspectProfile: inspectProfileFn, sourceRoot: liveSourceRoot, configPath, focusedPane, layout, flatActions, actionIndex, actionScrollOffset })
-    : stage === "confirm"
-    ? h(ConfirmScreen, { selectedProfiles, inspectProfile: inspectProfileFn, options, layout, canApply: confirmCanApply })
-    : h(RunScreen, {
-      options,
-      selectedProfiles,
-      currentProfile,
-      completedProfileIds,
-      logs,
-      prompt,
-      summary,
-      progressPercent,
-      done,
-      error,
-      layout,
-      onDecision: (decision) => {
-        const resolver = promptResolverRef.current;
-        promptResolverRef.current = null;
-        setPrompt(null);
-        if (resolver) resolver(decision);
-      },
-    });
+  const content =
+    stage === "loading"
+      ? h(LoadingScreen, { scanProgress, totalHeight })
+      : stage === "select"
+        ? h(SelectionScreen, {
+            toolGroups,
+            depth,
+            toolIndex,
+            selectedActionKeys,
+            inspectProfile: inspectProfileFn,
+            sourceRoot: liveSourceRoot,
+            configPath,
+            focusedPane,
+            layout,
+            flatActions,
+            actionIndex,
+            actionScrollOffset,
+          })
+        : stage === "confirm"
+          ? h(ConfirmScreen, {
+              selectedProfiles,
+              inspectProfile: inspectProfileFn,
+              options,
+              layout,
+              canApply: confirmCanApply,
+            })
+          : h(RunScreen, {
+              options,
+              selectedProfiles,
+              currentProfile,
+              completedProfileIds,
+              logs,
+              prompt,
+              summary,
+              progressPercent,
+              done,
+              error,
+              layout,
+              onDecision: (decision) => {
+                const resolver = promptResolverRef.current;
+                promptResolverRef.current = null;
+                setPrompt(null);
+                if (resolver) resolver(decision);
+              },
+            });
 
   if (stage === "loading") {
-    return h(
-      Box,
-      { flexDirection: "column", backgroundColor: theme.color.bg.base, height: totalHeight },
-      content,
-    );
+    return h(Box, { flexDirection: "column", backgroundColor: theme.color.bg.base, height: totalHeight }, content);
   }
 
   return h(
@@ -428,7 +643,12 @@ export function InstallerApp({ profiles, options, initialSelectedIds, runInstall
     },
     h(ChromeBar, { sourceRoot: liveSourceRoot }),
     editingSourceRoot
-      ? h(PathEditOverlay, { currentValue: liveSourceRoot, onSubmit: handleSourceRootSubmit, onCancel: () => setEditingSourceRoot(false), layout })
+      ? h(PathEditOverlay, {
+          currentValue: liveSourceRoot,
+          onSubmit: handleSourceRootSubmit,
+          onCancel: () => setEditingSourceRoot(false),
+          layout,
+        })
       : diffModal
         ? h(DiffOverlay, { ...diffModal, onClose: () => setDiffModal(null), layout })
         : content,

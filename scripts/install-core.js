@@ -47,6 +47,7 @@ const { loadConfig, CONFIG_DIR } = require("./load-config");
  * @property {boolean} [informational] - When true the profile is display-only and never installed
  * @property {string} tool - Tool identifier matching the rule name (e.g. "claude")
  * @property {string} toolLabel - Human-readable tool name (e.g. "Claude Code")
+ * @property {'multi-select'|'single-select'} mode - Selection mode inherited from the parent rule
  * @property {Action[]} actions - Resolved list of source→target symlink actions
  */
 
@@ -194,7 +195,8 @@ function snapshotDirectory(rootPath) {
   const lines = [];
 
   function walk(currentPath, relativePathname) {
-    const entries = fs.readdirSync(currentPath, { withFileTypes: true })
+    const entries = fs
+      .readdirSync(currentPath, { withFileTypes: true })
       .sort((left, right) => left.name.localeCompare(right.name));
 
     lines.push(`D:${relativePathname}`);
@@ -244,9 +246,10 @@ function contentMatches(sourcePath, targetPath) {
 function previewDiff(sourcePath, targetPath) {
   const sourceStat = fs.lstatSync(sourcePath);
   const targetStat = fs.lstatSync(targetPath);
-  const args = (sourceStat.isDirectory() || targetStat.isDirectory())
-    ? ["-qr", targetPath, sourcePath]
-    : ["-u", targetPath, sourcePath];
+  const args =
+    sourceStat.isDirectory() || targetStat.isDirectory()
+      ? ["-qr", targetPath, sourcePath]
+      : ["-u", targetPath, sourcePath];
 
   const result = spawnSync("diff", args, { encoding: "utf8" });
   if (result.error) {
@@ -268,7 +271,8 @@ function resolveMappingActions(mapping, repoRoot, targetHome) {
 
   if (mapping.type === "skills") {
     if (!fileExists(sourcePath)) return [];
-    const dirs = fs.readdirSync(sourcePath, { withFileTypes: true })
+    const dirs = fs
+      .readdirSync(sourcePath, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort();
@@ -281,17 +285,20 @@ function resolveMappingActions(mapping, repoRoot, targetHome) {
 
   if (mapping.type === "file") {
     if (!fileExists(sourcePath)) return [];
-    return [{
-      source: sourcePath,
-      target: path.join(targetHome, mapping.target),
-      itemType,
-    }];
+    return [
+      {
+        source: sourcePath,
+        target: path.join(targetHome, mapping.target),
+        itemType,
+      },
+    ];
   }
 
   if (mapping.type === "directory") {
     if (!fileExists(sourcePath)) return [];
     const resolvedTarget = mapping.target === "." ? targetHome : path.join(targetHome, mapping.target);
-    const entries = fs.readdirSync(sourcePath, { withFileTypes: true })
+    const entries = fs
+      .readdirSync(sourcePath, { withFileTypes: true })
       .sort((left, right) => left.name.localeCompare(right.name));
     const actions = [];
     for (const entry of entries) {
@@ -362,7 +369,7 @@ function discoverProfiles(repoRoot = getDefaultRepoRoot(), detection = null) {
     const targetHome = getConfig().expandHome(rule.home);
     if (!targetHome) continue;
 
-    const isInstalled = detection ? (detection[rule.name] !== false) : true;
+    const isInstalled = detection ? detection[rule.name] !== false : true;
     const isEnabled = rule.enabled !== false;
 
     for (const mapping of rule.mappings) {
@@ -380,6 +387,7 @@ function discoverProfiles(repoRoot = getDefaultRepoRoot(), detection = null) {
         enabled: isEnabled,
         tool: rule.name,
         toolLabel: rule.label,
+        mode: rule.mode || "multi-select",
         actions,
       });
     }
@@ -459,13 +467,20 @@ function parseArgs(argv) {
       if (!value) {
         throw new Error("--profile requires a comma-separated value");
       }
-      options.profileIds = value.split(",").map((item) => item.trim()).filter(Boolean);
+      options.profileIds = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
       index += 1;
       continue;
     }
 
     if (arg.startsWith("--profile=")) {
-      options.profileIds = arg.slice("--profile=".length).split(",").map((item) => item.trim()).filter(Boolean);
+      options.profileIds = arg
+        .slice("--profile=".length)
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
       continue;
     }
 
@@ -476,7 +491,9 @@ function parseArgs(argv) {
 }
 
 function printUsage(profiles) {
-  console.log("Usage: saddle [--dry-run] [--uninstall] [--check] [--yes] [--all] [--profile id1,id2] [--list] [--verbose] [--quiet]");
+  console.log(
+    "Usage: saddle [--dry-run] [--uninstall] [--check] [--yes] [--all] [--profile id1,id2] [--list] [--verbose] [--quiet]",
+  );
   console.log("");
   console.log("Interactive Ink UI by default when running in a TTY.");
   console.log("");
@@ -505,7 +522,9 @@ function printProfiles(profiles, selectedIds = new Set()) {
   console.log("Setup profiles");
   for (const [index, profile] of profiles.entries()) {
     const mark = selectedIds.has(profile.id) ? "x" : " ";
-    const details = profile.informational ? "informational" : `${profile.actions.length} link${profile.actions.length === 1 ? "" : "s"}`;
+    const details = profile.informational
+      ? "informational"
+      : `${profile.actions.length} link${profile.actions.length === 1 ? "" : "s"}`;
     console.log(`${index + 1}. [${mark}] ${profile.label} (${profile.id})`);
     console.log(`   ${profile.description}`);
     console.log(`   ${details}`);
@@ -634,9 +653,7 @@ async function buildInspectionCache(profiles, onProgress = null) {
 function inspectProfile(profile, inspectionCache = null) {
   const actions = profile.actions.map((action) => {
     const key = `${action.source}::${action.target}`;
-    const inspected = inspectionCache
-      ? (inspectionCache.get(key) || inspectAction(action))
-      : inspectAction(action);
+    const inspected = inspectionCache ? inspectionCache.get(key) || inspectAction(action) : inspectAction(action);
     return { ...inspected, itemType: action.itemType || "config" };
   });
   const counts = {
@@ -730,9 +747,7 @@ async function runInstallation({
         return;
       }
 
-      const confirmed = assumeYes
-        ? true
-        : await confirmReplacement(prompt);
+      const confirmed = assumeYes ? true : await confirmReplacement(prompt);
 
       if (!confirmed) {
         emit("skip", { profile, source, target, reason: "user-declined" });

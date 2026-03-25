@@ -7,6 +7,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.9.2] — 2026-03-25
+
+### Added
+
+- `mode` configuration option in rules: `multi-select` (default, allows selecting any combination of profiles) or `single-select` (enforces one-at-a-time selection)
+- Radio button indicators `(•)` / `( )` in TUI for single-select rule groups (vs. checkboxes `[x]` / `[ ]` for multi-select)
+- Single-select enforcement in headless mode (`--all` flag now respects mode for each rule)
+- "Writing Rules" section in README.md with complete YAML schema documentation, mode explanation, and real-world examples
+- All bundled rules now explicitly declare their selection mode in YAML
+
+### Changed
+
+- `oh-my-opencode.yaml` now uses `mode: single-select` to prevent accidental installation of multiple conflicting provider configs
+
+---
+
 ## [0.9.1] — 2026-03-12
 
 ### Fixed

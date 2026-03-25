@@ -3,6 +3,7 @@ label: Claude Code
 binary: claude
 home: ~/.claude
 enabled: true
+mode: multi-select
 
 mappings:
   - type: skills

@@ -20,16 +20,16 @@ Husky will install a pre-commit hook automatically during `npm install`.
 
 ## Project Structure
 
-| Path | Purpose |
-|------|---------|
-| `bin/saddle.js` | CLI entry point |
-| `scripts/install.js` | Main installer orchestrator |
+| Path                      | Purpose                                           |
+| ------------------------- | ------------------------------------------------- |
+| `bin/saddle.js`           | CLI entry point                                   |
+| `scripts/install.js`      | Main installer orchestrator                       |
 | `scripts/install-core.js` | Core logic (profile discovery, linking, lockfile) |
-| `scripts/install-ui.mjs` | Ink TUI (ESM) |
-| `scripts/load-config.js` | Config loading + rule normalisation |
-| `scripts/tui/` | TUI components and utilities |
-| `rules/` | Bundled YAML rules, one per supported tool |
-| `tests/` | Node built-in test runner suites |
+| `scripts/install-ui.mjs`  | Ink TUI (ESM)                                     |
+| `scripts/load-config.js`  | Config loading + rule normalisation               |
+| `scripts/tui/`            | TUI components and utilities                      |
+| `rules/`                  | Bundled YAML rules, one per supported tool        |
+| `tests/`                  | Node built-in test runner suites                  |
 
 ## Running Tests
 
@@ -37,7 +37,7 @@ Husky will install a pre-commit hook automatically during `npm install`.
 npm test
 ```
 
-All 171 tests must pass before any PR is merged. The suite uses the Node.js built-in `node:test` runner — no additional test dependencies.
+All tests must pass before any PR is merged. The suite uses the Node.js built-in `node:test` runner — no additional test dependencies.
 
 ## Running the Linter
 
@@ -84,6 +84,12 @@ To add support for a new AI coding tool:
 3. Run `npm test` to confirm nothing regressed
 
 The installer picks up new rule files automatically via `loadRules()`.
+
+See the **Writing Rules** section in `README.md` for the complete YAML schema, including:
+
+- `tool`, `label`, `home`, `binary`, `enabled`, `mode`
+- `mappings` for skills, files, and directories
+- `mode: single-select` for mutually exclusive options (vs. `multi-select` default)
 
 ## Reporting Issues
 

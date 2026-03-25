@@ -11,6 +11,7 @@ export function groupByTool(profiles) {
         label: profile.toolLabel || tool.charAt(0).toUpperCase() + tool.slice(1),
         installed: false,
         enabled: true,
+        mode: profile.mode || "multi-select",
         profiles: [],
         actionCount: 0,
       });
