@@ -120,6 +120,7 @@ describe("parseArgs", () => {
     assert.strictEqual(opts.selectAll, false);
     assert.strictEqual(opts.listOnly, false);
     assert.strictEqual(opts.help, false);
+    assert.strictEqual(opts.version, false);
     assert.strictEqual(opts.profileIds, null);
     assert.strictEqual(opts.verbose, false);
     assert.strictEqual(opts.quiet, false);
@@ -147,6 +148,14 @@ describe("parseArgs", () => {
 
   it("-h sets help", () => {
     assert.strictEqual(core.parseArgs(["-h"]).help, true);
+  });
+
+  it("--version sets version", () => {
+    assert.strictEqual(core.parseArgs(["--version"]).version, true);
+  });
+
+  it("-v sets version", () => {
+    assert.strictEqual(core.parseArgs(["-v"]).version, true);
   });
 
   it("'sync' subcommand is silently ignored", () => {
