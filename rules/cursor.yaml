@@ -6,6 +6,7 @@ binary:
     darwin: /Applications/Cursor.app
 home: ~/.cursor
 enabled: true
+mode: multi-select
 
 mappings:
   - type: skills

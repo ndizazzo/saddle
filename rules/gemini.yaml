@@ -3,6 +3,7 @@ label: Gemini
 binary: gemini
 home: ~/.gemini
 enabled: true
+mode: multi-select
 
 mappings:
   - type: file

@@ -3,6 +3,7 @@ label: Oh My Opencode
 binary: ""
 home: ~/.config/opencode
 enabled: true
+mode: single-select
 
 mappings:
   - type: file

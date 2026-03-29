@@ -51,14 +51,14 @@ The interactive TUI detects which AI tools are installed and walks you through l
 
 ## What Gets Synced
 
-| Tool | Home | Skills | Agents | Commands | Root File | Config Files |
-|------|------|:------:|:------:|:--------:|:---------:|:------------:|
-| Claude Code | `~/.claude` | ✓ | ✓ | ✓ | — | — |
-| Codex | `~/.codex` | ✓ | ✓ | ✓ | `AGENTS.md` | — |
-| Copilot | `~/.copilot` | ✓ | ✓ | ✓ | — | — |
-| Cursor | `~/.cursor` | ✓ | ✓ | ✓ | — | — |
-| Gemini | `~/.gemini` | ✓ | ✓ | ✓ | `GEMINI.md` | `configurations/gemini/` → `~/.gemini/` |
-| OpenCode | `~/.config/opencode` | ✓ | ✓ | ✓ | `AGENTS.md` | `opencode/` → `~/.config/opencode/` |
+| Tool        | Home                 | Skills | Agents | Commands |  Root File  |              Config Files               |
+| ----------- | -------------------- | :----: | :----: | :------: | :---------: | :-------------------------------------: |
+| Claude Code | `~/.claude`          |   ✓    |   ✓    |    ✓     |      —      |                    —                    |
+| Codex       | `~/.codex`           |   ✓    |   ✓    |    ✓     | `AGENTS.md` |                    —                    |
+| Copilot     | `~/.copilot`         |   ✓    |   ✓    |    ✓     |      —      |                    —                    |
+| Cursor      | `~/.cursor`          |   ✓    |   ✓    |    ✓     |      —      |                    —                    |
+| Gemini      | `~/.gemini`          |   ✓    |   ✓    |    ✓     | `GEMINI.md` | `configurations/gemini/` → `~/.gemini/` |
+| OpenCode    | `~/.config/opencode` |   ✓    |   ✓    |    ✓     | `AGENTS.md` |   `opencode/` → `~/.config/opencode/`   |
 
 ---
 
@@ -121,17 +121,17 @@ Keep the real files in this repo and rebuild tool-specific links on each machine
 saddle [options]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--dry-run` | Preview changes without writing to disk |
-| `--yes` | Auto-confirm replacements without prompting |
-| `--all` | Select every available profile |
-| `--profile id1,id2` | Apply specific profile IDs by name |
-| `--list` | Print available profiles and exit |
-| `--check` | Verify installed symlinks are in sync (exit 0 clean, 1 drift) |
-| `--uninstall` | Remove symlinks recorded in lockfile |
-| `--verbose` | Show extra detail (source paths, resolved targets) |
-| `--quiet` | Suppress ok/link/skip/mkdir output; errors and summary only |
+| Flag                | Description                                                   |
+| ------------------- | ------------------------------------------------------------- |
+| `--dry-run`         | Preview changes without writing to disk                       |
+| `--yes`             | Auto-confirm replacements without prompting                   |
+| `--all`             | Select every available profile                                |
+| `--profile id1,id2` | Apply specific profile IDs by name                            |
+| `--list`            | Print available profiles and exit                             |
+| `--check`           | Verify installed symlinks are in sync (exit 0 clean, 1 drift) |
+| `--uninstall`       | Remove symlinks recorded in lockfile                          |
+| `--verbose`         | Show extra detail (source paths, resolved targets)            |
+| `--quiet`           | Suppress ok/link/skip/mkdir output; errors and summary only   |
 
 ### Interactive Mode
 
@@ -158,11 +158,142 @@ npx saddle --profile claude-skills-skills,cursor-directory-agents --yes
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SADDLE_DIR` | `~/.config/saddle` | Base config directory |
-| `SADDLE_CONFIG` | `~/.config/saddle/config.yaml` | Path to config file |
-| `SADDLE_RULES_DIR` | `~/.config/saddle/rules` | Path to rules directory |
+| Variable           | Default                        | Description             |
+| ------------------ | ------------------------------ | ----------------------- |
+| `SADDLE_DIR`       | `~/.config/saddle`             | Base config directory   |
+| `SADDLE_CONFIG`    | `~/.config/saddle/config.yaml` | Path to config file     |
+| `SADDLE_RULES_DIR` | `~/.config/saddle/rules`       | Path to rules directory |
+
+---
+
+## Writing Rules
+
+Rules are YAML files that define how to sync a tool's configurations. Each rule describes what to link and where. Place custom rules in `~/.config/saddle/rules/` (or set `SADDLE_RULES_DIR` to override).
+
+### Rule Schema
+
+```yaml
+tool: claude # Unique identifier for this tool
+label: Claude Code # Display name in the TUI
+binary: # How to detect if tool is installed (optional)
+  which: claude # Try `which claude` to detect
+  # OR
+  paths: # Or check these paths on specific platforms
+    darwin: /Applications/Claude.app
+    linux: /usr/bin/claude
+home: ~/.claude # Tool's config directory (supports ~)
+enabled: true # Include in sync (default: true)
+mode: multi-select # Selection mode: multi-select (default) or single-select
+
+mappings: # List of what to link
+  - type: skills # Type: skills | file | directory
+    source: skills # Path relative to repo root
+    target: skills # Path relative to home (or . for home itself)
+    itemType: skill # Optional: type hint for skills mapping
+
+  - type: file # Link a single file
+    source: agents/claude/AGENTS.md
+    target: AGENTS.md # File name in home
+
+  - type: directory # Link files from a directory
+    source: configs/claude
+    target: . # Flatten files directly into home
+```
+
+### Key Fields
+
+| Field      | Required | Type    | Notes                                              |
+| ---------- | -------- | ------- | -------------------------------------------------- |
+| `tool`     | ✓        | string  | Machine-readable identifier (lowercase, no spaces) |
+| `label`    | ✗        | string  | Display name; defaults to capitalized `tool`       |
+| `binary`   | ✗        | object  | Detection method; omit to never detect             |
+| `home`     | ✓        | string  | Tool's config directory; supports `~`              |
+| `enabled`  | ✗        | boolean | Default: `true`. Set `false` to skip syncing       |
+| `mode`     | ✗        | string  | Selection mode (see below)                         |
+| `mappings` | ✓        | array   | List of symlink definitions                        |
+
+### Selection Mode
+
+Control how users can select items from this rule:
+
+- **`multi-select`** (default) — User can select any combination of profiles. UI shows checkboxes `[x]` / `[ ]`. Useful for skills, agents, commands where you might want multiple at once.
+
+- **`single-select`** — User can select only one profile from this rule at a time. UI shows radio buttons `(•)` / `( )`. Useful when alternatives are mutually exclusive (e.g., multiple config files targeting the same destination).
+
+**Example:** `oh-my-opencode.yaml` has 3 file mappings all targeting `oh-my-opencode.json`. Setting `mode: single-select` ensures only one alternative config gets installed:
+
+```yaml
+tool: oh-my-opencode
+label: OpenCode Config
+home: ~/.config/opencode
+enabled: true
+mode: single-select # Only allow ONE of the three files
+
+mappings:
+  - type: file
+    source: oh-my-opencode/config.openai.json
+    target: oh-my-opencode.json
+
+  - type: file
+    source: oh-my-opencode/config.claude.json
+    target: oh-my-opencode.json
+
+  - type: file
+    source: oh-my-opencode/config.copilot.json
+    target: oh-my-opencode.json
+```
+
+### Mapping Types
+
+**`skills`** — Discovers subdirectories in source and creates one action per skill.
+
+```yaml
+- type: skills
+  source: skills
+  target: skills
+  itemType: skill # optional type hint
+```
+
+**`file`** — Links a single file. Source file must exist.
+
+```yaml
+- type: file
+  source: agents/claude/AGENTS.md
+  target: AGENTS.md
+```
+
+**`directory`** — Discovers files in source directory (non-recursive) and creates one action per file.
+
+```yaml
+- type: directory
+  source: configs/claude
+  target: .          # Flatten into home
+  # OR
+  target: config/    # Put into subdirectory
+```
+
+### Binary Detection
+
+Detect if a tool is installed:
+
+```yaml
+# Method 1: `which` command (cross-platform)
+binary:
+  which: claude
+
+# Method 2: Platform-specific paths
+binary:
+  paths:
+    darwin: /Applications/Claude.app
+    linux: /usr/bin/claude
+    win32: C:\Program Files\Claude\claude.exe
+
+# Method 3: Both (tries `which` first, falls back to paths)
+binary:
+  which: cursor
+  paths:
+    darwin: /Applications/Cursor.app
+```
 
 ---
 
