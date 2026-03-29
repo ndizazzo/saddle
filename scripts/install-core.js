@@ -406,6 +406,7 @@ function parseArgs(argv) {
     check: false,
     profileIds: null,
     help: false,
+    version: false,
     verbose: false,
     quiet: false,
   };
@@ -444,6 +445,11 @@ function parseArgs(argv) {
 
     if (arg === "--help" || arg === "-h") {
       options.help = true;
+      continue;
+    }
+
+    if (arg === "--version" || arg === "-v") {
+      options.version = true;
       continue;
     }
 

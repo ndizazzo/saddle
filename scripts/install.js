@@ -4,6 +4,7 @@
 
 const fs = require("fs");
 const readline = require("readline/promises");
+const { version } = require("../package.json");
 const {
   buildInspectionCache,
   getDefaultRepoRoot,
@@ -178,12 +179,19 @@ async function runPlainInstaller({ profiles, options, initialSelectedIds, source
 }
 
 async function main(argv) {
-   const config = loadConfig(getDefaultRepoRoot());
-   const { configError, sourceRoot } = config;
-   if (sourceRoot && !fs.existsSync(sourceRoot)) {
-     process.stderr.write(`Warning: source root ${sourceRoot} does not exist. Profiles may be empty.\n`);
-   }
-   if (configError) {
+  const options = parseArgs(argv);
+
+  if (options.version) {
+    console.log(version);
+    return;
+  }
+
+  const config = loadConfig(getDefaultRepoRoot());
+  const { configError, sourceRoot } = config;
+  if (sourceRoot && !fs.existsSync(sourceRoot)) {
+    process.stderr.write(`Warning: source root ${sourceRoot} does not exist. Profiles may be empty.\n`);
+  }
+  if (configError) {
     const choice = await handleInvalidConfig(configError);
     if (choice === "exit") {
       process.exit(0);
@@ -197,7 +205,6 @@ async function main(argv) {
 
   const detection = detectInstalledTools();
   const profiles = discoverProfiles(undefined, detection);
-  const options = parseArgs(argv);
 
   if (options.help) {
     printUsage(profiles);
