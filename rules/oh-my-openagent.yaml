@@ -1,0 +1,17 @@
+tool: oh-my-openagent
+label: Oh My Openagent
+binary: ""
+home: ~/.config/opencode
+enabled: true
+mode: single-select
+
+mappings:
+  - type: file
+    source: oh-my-openagent/oh-my-openagent.json.claude
+    target: oh-my-openagent.json
+  - type: file
+    source: oh-my-openagent/oh-my-openagent.json.openai
+    target: oh-my-openagent.json
+  - type: file
+    source: oh-my-openagent/oh-my-openagent.json.copilot
+    target: oh-my-openagent.json
