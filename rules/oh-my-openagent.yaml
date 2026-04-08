@@ -1,6 +1,5 @@
 tool: oh-my-openagent
 label: Oh My Openagent
-binary: ""
 home: ~/.config/opencode
 enabled: true
 mode: single-select

@@ -27,7 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- `oh-my-openagent.yaml` now uses `mode: single-select` to prevent accidental installation of multiple conflicting provider configs
+- `oh-my-opencode.yaml` now uses `mode: single-select` to prevent accidental installation of multiple conflicting provider configs (now renamed to `oh-my-openagent.yaml`)
 
 ---
 
