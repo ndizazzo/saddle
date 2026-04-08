@@ -220,10 +220,10 @@ Control how users can select items from this rule:
 
 - **`single-select`** — User can select only one profile from this rule at a time. UI shows radio buttons `(•)` / `( )`. Useful when alternatives are mutually exclusive (e.g., multiple config files targeting the same destination).
 
-**Example:** `oh-my-opencode.yaml` has 3 file mappings all targeting `oh-my-opencode.json`. Setting `mode: single-select` ensures only one alternative config gets installed:
+**Example:** `oh-my-openagent.yaml` has 3 file mappings all targeting `oh-my-openagent.json`. Setting `mode: single-select` ensures only one alternative config gets installed:
 
 ```yaml
-tool: oh-my-opencode
+tool: oh-my-openagent
 label: OpenCode Config
 home: ~/.config/opencode
 enabled: true
@@ -231,16 +231,16 @@ mode: single-select # Only allow ONE of the three files
 
 mappings:
   - type: file
-    source: oh-my-opencode/config.openai.json
-    target: oh-my-opencode.json
+    source: oh-my-openagent/config.openai.json
+    target: oh-my-openagent.json
 
   - type: file
-    source: oh-my-opencode/config.claude.json
-    target: oh-my-opencode.json
+    source: oh-my-openagent/config.claude.json
+    target: oh-my-openagent.json
 
   - type: file
-    source: oh-my-opencode/config.copilot.json
-    target: oh-my-opencode.json
+    source: oh-my-openagent/config.copilot.json
+    target: oh-my-openagent.json
 ```
 
 ### Mapping Types

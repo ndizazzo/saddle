@@ -80,20 +80,20 @@ before(() => {
     path.join(testRulesDir, "delta.yaml"),
     [
       "tool: delta",
-      "label: Oh My Opencode",
+      "label: Oh My Openagent",
       `home: ${homeDelta}`,
       "enabled: true",
       "mode: single-select",
       "mappings:",
       "  - type: file",
-      "    source: oh-my-opencode/oh-my-opencode.json.openai",
-      "    target: oh-my-opencode.json",
+      "    source: oh-my-openagent/oh-my-openagent.json.openai",
+      "    target: oh-my-openagent.json",
       "  - type: file",
-      "    source: oh-my-opencode/oh-my-opencode.json.claude",
-      "    target: oh-my-opencode.json",
+      "    source: oh-my-openagent/oh-my-openagent.json.claude",
+      "    target: oh-my-openagent.json",
       "  - type: file",
-      "    source: oh-my-opencode/oh-my-opencode.json.copilot",
-      "    target: oh-my-opencode.json",
+      "    source: oh-my-openagent/oh-my-openagent.json.copilot",
+      "    target: oh-my-openagent.json",
     ].join("\n"),
   );
 
@@ -559,21 +559,21 @@ describe("discoverProfiles", () => {
   });
 
   it("keeps file labels distinct when one tool exposes multiple file mappings", () => {
-    mkfile(path.join(repoRoot, "oh-my-opencode", "oh-my-opencode.json.openai"), "{}");
-    mkfile(path.join(repoRoot, "oh-my-opencode", "oh-my-opencode.json.claude"), "{}");
-    mkfile(path.join(repoRoot, "oh-my-opencode", "oh-my-opencode.json.copilot"), "{}");
+    mkfile(path.join(repoRoot, "oh-my-openagent", "oh-my-openagent.json.openai"), "{}");
+    mkfile(path.join(repoRoot, "oh-my-openagent", "oh-my-openagent.json.claude"), "{}");
+    mkfile(path.join(repoRoot, "oh-my-openagent", "oh-my-openagent.json.copilot"), "{}");
 
     const profiles = core.discoverProfiles(repoRoot, { alpha: false, beta: false, gamma: false, delta: true });
     const deltaProfiles = profiles.filter((p) => p.tool === "delta");
 
     assert.deepStrictEqual(deltaProfiles.map((profile) => profile.label).sort(), [
-      "oh-my-opencode.json.claude",
-      "oh-my-opencode.json.copilot",
-      "oh-my-opencode.json.openai",
+      "oh-my-openagent.json.claude",
+      "oh-my-openagent.json.copilot",
+      "oh-my-openagent.json.openai",
     ]);
     assert.ok(
       deltaProfiles.every(
-        (profile) => profile.description === `Links to ${path.join(homeDelta, "oh-my-opencode.json")}`,
+        (profile) => profile.description === `Links to ${path.join(homeDelta, "oh-my-openagent.json")}`,
       ),
     );
   });
@@ -656,8 +656,8 @@ describe("discoverProfiles", () => {
   });
 
   it("profiles inherit single-select mode from their rule", () => {
-    mkfile(path.join(repoRoot, "oh-my-opencode", "oh-my-opencode.json.openai"), "{}");
-    mkfile(path.join(repoRoot, "oh-my-opencode", "oh-my-opencode.json.claude"), "{}");
+    mkfile(path.join(repoRoot, "oh-my-openagent", "oh-my-openagent.json.openai"), "{}");
+    mkfile(path.join(repoRoot, "oh-my-openagent", "oh-my-openagent.json.claude"), "{}");
     const profiles = core.discoverProfiles(repoRoot, { alpha: false, beta: false, gamma: false, delta: true });
     const deltaProfiles = profiles.filter((p) => p.tool === "delta");
     assert.ok(deltaProfiles.length > 0, "should have delta profiles");

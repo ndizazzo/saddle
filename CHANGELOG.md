@@ -7,6 +7,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.9.3] — 2026-04-08
+
+### Changed
+
+- Renamed bundled rule `oh-my-opencode.yaml` → `oh-my-openagent.yaml` to reflect the upstream package rename; tool identifier, labels, source paths, and target config filename updated throughout
+
+---
+
 ## [0.9.2] — 2026-03-25
 
 ### Added
@@ -19,7 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- `oh-my-opencode.yaml` now uses `mode: single-select` to prevent accidental installation of multiple conflicting provider configs
+- `oh-my-opencode.yaml` now uses `mode: single-select` to prevent accidental installation of multiple conflicting provider configs (now renamed to `oh-my-openagent.yaml`)
 
 ---
 
