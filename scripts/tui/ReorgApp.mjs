@@ -6,13 +6,7 @@ import { theme } from "./theme/index.mjs";
 import { palette } from "./theme/catalog.mjs";
 import { Frame, ShortPath, TerminalTag } from "./ui/primitives.mjs";
 import { h } from "./ui/react-helpers.mjs";
-import { buildChangeGroups } from "./reorg-view-model.mjs";
-
-const toneByType = {
-  import: "magenta",
-  link: "cyan",
-  "remove-duplicate": "orange",
-};
+import { buildCanonicalCollections, buildHarnessBlocks } from "./reorg-view-model.mjs";
 
 const labelByType = {
   import: "IMPORT",
@@ -25,10 +19,6 @@ function compactPath(value) {
   if (!home) return value;
   if (value === home) return "~";
   return value.startsWith(`${home}${path.sep}`) ? `~${value.slice(home.length)}` : value;
-}
-
-function pluralizeKind(kind, count) {
-  return count === 1 ? kind : `${kind}s`;
 }
 
 function countPlanActions(actions) {
@@ -103,167 +93,198 @@ function OutcomeSummary({ plan, counts, compact }) {
   );
 }
 
-function ExecutionOrder({ plan, counts }) {
-  const steps = [
-    counts.import > 0
-      ? {
-          title: `Copy ${counts.import} ${counts.import === 1 ? "item" : "items"} into ${compactPath(plan.sourceRoot)}`,
-          detail: "Existing files stay in place while Saddle verifies each copy.",
-          tone: "magenta",
-        }
-      : null,
-    counts.link > 0
-      ? {
-          title: `Create ${counts.link} ${counts.link === 1 ? "symlink" : "symlinks"} from agent folders`,
-          detail: "Matching local entries become links to the canonical files.",
-          tone: "cyan",
-        }
-      : null,
-    counts.remove > 0
-      ? {
-          title: `Remove ${counts.remove} verified ${counts.remove === 1 ? "duplicate" : "duplicates"}`,
-          detail: "The canonical copy remains. Saddle removes only redundant entries.",
-          tone: "orange",
-        }
-      : null,
-  ].filter(Boolean);
-
+function CanonicalSource({ plan, collections, counts }) {
   return h(
     Frame,
-    { title: "How Saddle applies it", color: "cyan", flexGrow: 1 },
-    ...steps.flatMap((step, index) => [
+    { title: "Canonical source", color: "cyan", flexGrow: 1 },
+    h(ShortPath, { pathText: compactPath(plan.sourceRoot), color: "cyan" }),
+    h(Text, { color: theme.color.fg.muted }, "Installed agents will read from these collections."),
+    h(Box, { height: 1 }),
+    ...collections.map((collection) =>
       h(
         Box,
-        { key: `${step.title}-title`, columnGap: 1 },
-        h(Text, { color: palette[step.tone], bold: true }, `${index + 1}.`),
-        h(Text, { color: theme.color.fg.primary, bold: true }, step.title),
+        { key: `${collection.kind}:${collection.path}`, columnGap: 1 },
+        h(Text, { color: collection.changed ? theme.color.accent.primary : theme.color.fg.dim, bold: true }, collection.kind.toUpperCase().padEnd(7)),
+        h(ShortPath, { pathText: compactPath(collection.path), color: collection.changed ? "white" : "gray" }),
       ),
-      h(
-        Box,
-        { key: `${step.title}-detail`, marginLeft: 3, marginBottom: 1 },
-        h(Text, { color: theme.color.fg.muted }, step.detail),
-      ),
-    ]),
+    ),
+    h(Box, { height: 1 }),
+    h(Text, { color: theme.color.fg.primary, bold: true }, "Status"),
+    h(Box, { columnGap: 1 }, h(TerminalTag, { tone: "cyan" }, "ACTIVE"), h(Text, { color: theme.color.fg.muted }, "work remains")),
+    h(Box, { columnGap: 1 }, h(TerminalTag, { tone: "gray" }, "READY"), h(Text, { color: theme.color.fg.dim }, "already in place")),
+    h(Box, { height: 1 }),
+    h(Text, { color: theme.color.fg.primary, bold: true }, "Apply order"),
+    h(Text, { color: theme.color.fg.muted }, `1. Copy and verify ${counts.import}`),
+    h(Text, { color: theme.color.fg.muted }, `2. Link ${counts.link} destinations`),
+    h(Text, { color: theme.color.fg.muted }, `3. Remove ${counts.remove} verified duplicates`),
     h(Box, { flexGrow: 1 }),
-    h(Text, { color: theme.color.state.success }, "If a step fails, Saddle restores the earlier changes."),
+    h(Text, { color: theme.color.state.success }, "A failed step restores earlier changes."),
   );
 }
 
-function GroupPath({ group }) {
-  if (group.type === "remove-duplicate") {
-    return h(
-      Box,
-      { marginLeft: 2, columnGap: 1 },
-      h(ShortPath, { pathText: compactPath(group.targetRoot), color: "gray" }),
-      h(Text, { color: theme.color.fg.dim }, "removed; canonical copy stays in"),
-      h(ShortPath, { pathText: compactPath(group.sourceRoot), color: "cyan" }),
-    );
-  }
+function operationTone(operation) {
+  if (operation === "CLEAN") return "orange";
+  if (operation === "MOVE" || operation === "MOVE+LINK") return "magenta";
+  return "cyan";
+}
+
+function HarnessBlock({ harness, selected, width, height, compact = false, position, total }) {
+  const active = harness.hasChanges;
+  const borderColor = active
+    ? selected
+      ? theme.color.accent.bright
+      : theme.color.accent.soft
+    : selected
+      ? theme.color.border.strong
+      : theme.color.border.subtle;
 
   return h(
     Box,
-    { marginLeft: 2, columnGap: 1 },
-    h(ShortPath, { pathText: compactPath(group.sourceRoot), color: "gray" }),
-    h(Text, { color: theme.color.fg.dim }, "->"),
-    h(ShortPath, { pathText: compactPath(group.targetRoot), color: "cyan" }),
+    {
+      width,
+      height: compact ? undefined : height,
+      borderStyle: "single",
+      borderColor,
+      paddingX: 1,
+      flexDirection: "column",
+    },
+    h(
+      Box,
+      { justifyContent: "space-between", columnGap: 1 },
+      h(
+        Text,
+        { color: active ? theme.color.fg.primary : theme.color.fg.dim, bold: active || selected },
+        `${selected ? "> " : "  "}${harness.label}`,
+      ),
+      h(
+        Text,
+        { color: active ? theme.color.accent.primary : theme.color.fg.dim, bold: active },
+        active ? `${harness.changeCount} CHANGES` : "READY",
+      ),
+    ),
+    ...harness.rows.map((row) => {
+      const rowActive = row.status === "change";
+      return h(
+        Box,
+        { key: `${harness.tool}:${row.kind}:${row.endpoint}`, columnGap: 1 },
+        h(
+          Text,
+          { color: rowActive ? theme.color.fg.secondary : theme.color.fg.dim },
+          (row.displayKind || row.kind).toUpperCase().padEnd(7),
+        ),
+        h(
+          Box,
+          { minWidth: 0, flexGrow: 1 },
+          h(
+            Text,
+            { color: rowActive ? theme.color.fg.primary : theme.color.fg.dim, wrap: "truncate-middle" },
+            row.endpoint ? compactPath(row.endpoint) : "No destination",
+          ),
+        ),
+        h(
+          Text,
+          {
+            color: rowActive ? palette[operationTone(row.operation)] : theme.color.fg.dim,
+            bold: rowActive,
+            flexShrink: 0,
+          },
+          row.count > 0 ? `${row.count} ${row.operation}` : row.operation,
+        ),
+      );
+    }),
+    compact
+      ? h(Text, { color: theme.color.fg.dim }, `Installed agent ${position} of ${total}`)
+      : null,
   );
 }
 
-function LocationReview({ groups, selectedIndex, height, compact = false }) {
-  if (groups.length === 0) {
+function harnessItems(harness) {
+  const items = new Map();
+  for (const row of harness.rows) {
+    for (const action of row.actions) {
+      const key = `${action.kind}:${action.name}`;
+      if (!items.has(key)) items.set(key, { kind: action.kind, name: action.name, operations: new Set() });
+      items.get(key).operations.add(row.operation);
+    }
+  }
+  return Array.from(items.values()).sort((left, right) => left.kind.localeCompare(right.kind) || left.name.localeCompare(right.name));
+}
+
+function HarnessMap({ harnesses, selectedIndex, width, height, compact = false }) {
+  if (harnesses.length === 0) {
     return h(
       Frame,
-      { title: "Affected locations", color: "green", flexGrow: 1 },
-      h(StatusMessage, { variant: "success" }, "No files or links need to change."),
+      { title: "Installed agents", color: "green", flexGrow: 1 },
+      h(StatusMessage, { variant: "success" }, "No installed agents need destination paths."),
     );
   }
 
-  const selected = groups[selectedIndex];
+  const selected = harnesses[selectedIndex];
   if (compact) {
-    const firstAction = selected.actions[0];
     return h(
-      Frame,
-      { title: "Affected locations", color: "orange", flexGrow: 1 },
-      h(Text, { color: theme.color.fg.dim }, `Path group ${selectedIndex + 1} of ${groups.length}`),
-      h(
-        Box,
-        { columnGap: 1 },
-        h(Text, { color: theme.color.accent.bright, bold: true }, ">"),
-        h(Text, { color: palette[toneByType[selected.type]], bold: true }, labelByType[selected.type]),
-        h(
-          Text,
-          { color: theme.color.fg.primary, bold: true },
-          `${selected.actions.length} ${pluralizeKind(selected.kind, selected.actions.length)}`,
-        ),
-        h(Text, { color: theme.color.fg.dim }, selected.tools.join(", ")),
-      ),
-      h(GroupPath, { group: selected }),
-      h(
-        Box,
-        { marginLeft: 2, columnGap: 1 },
-        h(Text, { color: theme.color.fg.muted }, "First file"),
-        h(Text, { color: theme.color.fg.primary, wrap: "truncate-end" }, path.basename(firstAction.target)),
-      ),
-      selected.actions.length > 1
-        ? h(Text, { color: theme.color.fg.dim, marginLeft: 2 }, `${selected.actions.length - 1} more in this group`)
-        : null,
+      HarnessBlock,
+      {
+        harness: selected,
+        selected: true,
+        width,
+        compact: true,
+        position: selectedIndex + 1,
+        total: harnesses.length,
+      },
     );
   }
 
-  const maxVisibleGroups = Math.max(2, Math.floor((height - 11) / 2));
-  const start = Math.min(
-    Math.max(0, selectedIndex - maxVisibleGroups + 1),
-    Math.max(0, groups.length - maxVisibleGroups),
-  );
-  const visibleGroups = groups.slice(start, start + maxVisibleGroups);
-  const detailLimit = Math.max(1, height - 11 - visibleGroups.length * 2);
-  const visibleActions = selected.actions.slice(0, detailLimit);
+  const columns = width >= 72 ? 2 : 1;
+  const blockWidth = columns === 2 ? Math.floor((width - 1) / 2) : width;
+  const blockHeight = Math.max(5, ...harnesses.map((harness) => harness.rows.length + 3));
+  const rows = [];
+  for (let index = 0; index < harnesses.length; index += columns) rows.push(harnesses.slice(index, index + columns));
+  const selectedItems = harnessItems(selected);
+  const detailLimit = Math.max(1, height - rows.length * blockHeight - 8);
+  const visibleItems = selectedItems.slice(0, detailLimit);
 
   return h(
     Frame,
-    { title: "Affected locations", color: "orange", flexGrow: 1 },
-    h(Text, { color: theme.color.fg.muted }, "Use Up/Down to inspect a path group."),
-    start > 0 ? h(Text, { color: theme.color.fg.dim }, `${start} groups above`) : null,
-    ...visibleGroups.flatMap((group, visibleIndex) => {
-      const index = start + visibleIndex;
-      const active = index === selectedIndex;
-      return [
-        h(
-          Box,
-          { key: `${group.id}-label`, columnGap: 1 },
-          h(Text, { color: active ? theme.color.accent.bright : theme.color.fg.dim, bold: active }, active ? ">" : " "),
-          h(
-            Text,
-            { color: palette[toneByType[group.type]], bold: true },
-            labelByType[group.type],
-          ),
-          h(
-            Text,
-            { color: active ? theme.color.fg.primary : theme.color.fg.secondary, bold: active },
-            `${group.actions.length} ${pluralizeKind(group.kind, group.actions.length)}`,
-          ),
-          h(Text, { color: theme.color.fg.dim }, group.tools.join(", ")),
-        ),
-        h(GroupPath, { key: `${group.id}-path`, group }),
-      ];
-    }),
-    start + visibleGroups.length < groups.length
-      ? h(Text, { color: theme.color.fg.dim }, `${groups.length - start - visibleGroups.length} groups below`)
-      : null,
-    h(Box, { marginTop: 1, columnGap: 1 },
-      h(Text, { color: theme.color.fg.primary, bold: true }, "Exact files"),
-      h(Text, { color: theme.color.fg.dim }, `${selected.actions.length} in selected group`),
-    ),
-    ...visibleActions.map((action) =>
+    { title: "Installed agent destinations", color: "orange", flexGrow: 1 },
+    h(Text, { color: theme.color.fg.muted }, "Arrow keys move between agents. Bright rows change; dim rows stay as they are."),
+    ...rows.map((row, rowIndex) =>
       h(
         Box,
-        { key: action.id, marginLeft: 2, justifyContent: "space-between", columnGap: 2 },
-        h(Text, { color: theme.color.fg.primary, wrap: "truncate-end" }, path.basename(action.target)),
-        h(Text, { color: theme.color.fg.dim, flexShrink: 0 }, action.kind),
+        { key: `harness-row-${rowIndex}`, columnGap: 1 },
+        ...row.map((harness) => {
+          const index = harnesses.indexOf(harness);
+          return h(HarnessBlock, {
+            key: harness.tool,
+            harness,
+            selected: index === selectedIndex,
+            width: blockWidth,
+            height: blockHeight,
+          });
+        }),
       ),
     ),
-    selected.actions.length > visibleActions.length
-      ? h(Text, { color: theme.color.fg.dim, marginLeft: 2 }, `${selected.actions.length - visibleActions.length} more files`)
+    h(
+      Box,
+      { marginTop: 1, columnGap: 1 },
+      h(Text, { color: selected.hasChanges ? theme.color.fg.primary : theme.color.fg.dim, bold: true }, selected.label),
+      h(
+        Text,
+        { color: selected.hasChanges ? theme.color.accent.primary : theme.color.fg.dim },
+        selected.hasChanges ? `${selected.changeCount} files need work` : "all destination paths are ready",
+      ),
+    ),
+    selected.hasChanges
+      ? visibleItems.map((item) =>
+          h(
+            Box,
+            { key: `${selected.tool}:${item.kind}:${item.name}`, marginLeft: 2, justifyContent: "space-between", columnGap: 2 },
+            h(Text, { color: theme.color.fg.primary, wrap: "truncate-end" }, item.name),
+            h(Text, { color: theme.color.fg.dim, flexShrink: 0 }, `${item.kind} ${Array.from(item.operations).join("+")}`),
+          ),
+        )
+      : h(Text, { color: theme.color.fg.dim, marginLeft: 2 }, "Saddle will not touch this agent."),
+    selectedItems.length > visibleItems.length
+      ? h(Text, { color: theme.color.fg.dim, marginLeft: 2 }, `${selectedItems.length - visibleItems.length} more files`)
       : null,
   );
 }
@@ -347,7 +368,7 @@ function ApplyProgress({ plan, completed, current, error, done }) {
 export function ReorgApp({ plan, applyReorgPlan, onFinish }) {
   const { exit } = useApp();
   const [stage, setStage] = useState(plan.conflicts.length > 0 ? "conflicts" : "review");
-  const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
+  const [selectedHarnessIndex, setSelectedHarnessIndex] = useState(0);
   const [completed, setCompleted] = useState(0);
   const [current, setCurrent] = useState(null);
   const [done, setDone] = useState(false);
@@ -360,15 +381,24 @@ export function ReorgApp({ plan, applyReorgPlan, onFinish }) {
   const reviewHeight = compact ? Math.max(9, terminalHeight - 14) : Math.max(9, terminalHeight - 15);
   const gap = 1;
   const availableWidth = Math.max(27, width - gap - 2);
-  const leftWidth = Math.max(12, Math.floor(availableWidth * 0.38));
+  const leftWidth = Math.max(12, Math.floor(availableWidth * 0.3));
   const rightWidth = Math.max(12, availableWidth - leftWidth);
+  const mapWidth = Math.max(8, rightWidth - 4);
+  const mapColumns = !compact && mapWidth >= 72 ? 2 : 1;
   const counts = useMemo(() => countPlanActions(plan.actions), [plan.actions]);
-  const groups = useMemo(() => buildChangeGroups(plan.actions), [plan.actions]);
+  const harnesses = useMemo(
+    () => buildHarnessBlocks({ coverage: plan.coverage, actions: plan.actions, unchanged: plan.unchanged }),
+    [plan.coverage, plan.actions, plan.unchanged],
+  );
+  const collections = useMemo(
+    () => buildCanonicalCollections({ sourceRoot: plan.sourceRoot, actions: plan.actions, unchanged: plan.unchanged }),
+    [plan.sourceRoot, plan.actions, plan.unchanged],
+  );
 
   useEffect(() => {
-    if (groups.length === 0) return;
-    if (selectedGroupIndex >= groups.length) setSelectedGroupIndex(groups.length - 1);
-  }, [groups, selectedGroupIndex]);
+    if (harnesses.length === 0) return;
+    if (selectedHarnessIndex >= harnesses.length) setSelectedHarnessIndex(harnesses.length - 1);
+  }, [harnesses, selectedHarnessIndex]);
 
   useInput((input, key) => {
     const requestedExit = key.escape || input === "q" || (key.ctrl && input === "c");
@@ -381,12 +411,20 @@ export function ReorgApp({ plan, applyReorgPlan, onFinish }) {
       return;
     }
     if (stage === "review") {
-      if (key.upArrow && groups.length > 0) {
-        setSelectedGroupIndex((current) => Math.max(0, current - 1));
+      if (key.leftArrow && harnesses.length > 0) {
+        setSelectedHarnessIndex((current) => Math.max(0, current - 1));
         return;
       }
-      if (key.downArrow && groups.length > 0) {
-        setSelectedGroupIndex((current) => Math.min(groups.length - 1, current + 1));
+      if (key.rightArrow && harnesses.length > 0) {
+        setSelectedHarnessIndex((current) => Math.min(harnesses.length - 1, current + 1));
+        return;
+      }
+      if (key.upArrow && harnesses.length > 0) {
+        setSelectedHarnessIndex((current) => Math.max(0, current - mapColumns));
+        return;
+      }
+      if (key.downArrow && harnesses.length > 0) {
+        setSelectedHarnessIndex((current) => Math.min(harnesses.length - 1, current + mapColumns));
         return;
       }
       if (key.return) {
@@ -463,16 +501,27 @@ export function ReorgApp({ plan, applyReorgPlan, onFinish }) {
               ? h(
                   Box,
                   { height: reviewHeight },
-                  h(LocationReview, { groups, selectedIndex: selectedGroupIndex, height: reviewHeight, compact: true }),
+                  h(HarnessMap, {
+                    harnesses,
+                    selectedIndex: selectedHarnessIndex,
+                    width: availableWidth,
+                    height: reviewHeight,
+                    compact: true,
+                  }),
                 )
               : h(
                   Box,
                   { height: reviewHeight, columnGap: gap },
-                  h(Box, { width: leftWidth }, h(ExecutionOrder, { plan, counts })),
+                  h(Box, { width: leftWidth }, h(CanonicalSource, { plan, collections, counts })),
                   h(
                     Box,
                     { width: rightWidth },
-                    h(LocationReview, { groups, selectedIndex: selectedGroupIndex, height: reviewHeight }),
+                    h(HarnessMap, {
+                      harnesses,
+                      selectedIndex: selectedHarnessIndex,
+                      width: mapWidth,
+                      height: reviewHeight,
+                    }),
                   ),
                 ),
             h(
@@ -488,7 +537,7 @@ export function ReorgApp({ plan, applyReorgPlan, onFinish }) {
                 { color: plan.actions.length > 0 ? theme.color.accent.bright : theme.color.state.success, bold: true },
                 plan.actions.length > 0 ? `Enter  Apply ${plan.actions.length} changes` : "Enter  Exit",
               ),
-              groups.length > 1 ? h(Text, { color: theme.color.fg.muted }, "Up/Down  Inspect") : null,
+              harnesses.length > 1 ? h(Text, { color: theme.color.fg.muted }, "Arrows  Inspect agent") : null,
               h(Text, { color: theme.color.fg.muted }, "Esc  Cancel without changes"),
             ),
           )
