@@ -86,13 +86,12 @@ describe("load-config", () => {
       assert.strictEqual(seededFiles.length, bundledFiles.length);
     });
 
-    it("returns expanded DEFAULT_SOURCE_ROOT as sourceRoot", () => {
-      const { loadConfig, DEFAULT_SOURCE_ROOT } = fresh();
+    it("uses the caller fallback when sourceRoot is not configured", () => {
+      const { loadConfig } = fresh();
       const config = loadConfig("/fallback");
-      const expected = DEFAULT_SOURCE_ROOT.startsWith("~/")
-        ? path.join(os.homedir(), DEFAULT_SOURCE_ROOT.slice(1))
-        : DEFAULT_SOURCE_ROOT;
-      assert.strictEqual(config.sourceRoot, expected);
+      assert.strictEqual(config.sourceRoot, "/fallback");
+      assert.strictEqual(config.configuredSourceRoot, null);
+      assert.strictEqual(config.linkStrategy, "universal-first");
     });
 
     it("returns rules array from seeded rule files", () => {
@@ -135,14 +134,44 @@ describe("load-config", () => {
       assert.strictEqual(config.sourceRoot, path.join(os.homedir(), "my/path"));
     });
 
-    it("falls back to DEFAULT_SOURCE_ROOT when sourceRoot key is absent", () => {
+    it("falls back to the caller source root when sourceRoot key is absent", () => {
       mkfile(configPath, "ignore: []\n");
-      const { loadConfig, DEFAULT_SOURCE_ROOT } = fresh();
+      const { loadConfig } = fresh();
       const config = loadConfig("/fallback");
-      const expected = DEFAULT_SOURCE_ROOT.startsWith("~/")
-        ? path.join(os.homedir(), DEFAULT_SOURCE_ROOT.slice(1))
-        : DEFAULT_SOURCE_ROOT;
-      assert.strictEqual(config.sourceRoot, expected);
+      assert.strictEqual(config.sourceRoot, "/fallback");
+      assert.strictEqual(config.configuredSourceRoot, null);
+    });
+
+    it("reads provider-only as the link strategy", () => {
+      mkfile(configPath, "sourceRoot: /custom/source\nlinkStrategy: provider-only\nignore: []\n");
+      const config = fresh().loadConfig("/fallback");
+      assert.strictEqual(config.linkStrategy, "provider-only");
+    });
+
+    it("normalizes unknown link strategies to universal-first", () => {
+      mkfile(configPath, "sourceRoot: /custom/source\nlinkStrategy: both\nignore: []\n");
+      const config = fresh().loadConfig("/fallback");
+      assert.strictEqual(config.linkStrategy, "universal-first");
+    });
+
+    it("lets SADDLE_SOURCE_ROOT override the config file", () => {
+      mkfile(configPath, "sourceRoot: /custom/source\nignore: []\n");
+      process.env.SADDLE_SOURCE_ROOT = "/environment/source";
+      try {
+        const config = fresh().loadConfig("/fallback");
+        assert.strictEqual(config.sourceRoot, "/environment/source");
+        assert.strictEqual(config.configuredSourceRoot, "/environment/source");
+      } finally {
+        delete process.env.SADDLE_SOURCE_ROOT;
+      }
+    });
+
+    it("can inspect absent config without creating files", () => {
+      const { loadConfig } = fresh();
+      const config = loadConfig("/fallback", { initialize: false });
+      assert.strictEqual(config.sourceRoot, "/fallback");
+      assert.strictEqual(fs.existsSync(configPath), false);
+      assert.strictEqual(fs.existsSync(rulesDir), false);
     });
 
     it("does not rewrite the config file if it already exists", () => {
@@ -432,6 +461,122 @@ describe("load-config", () => {
       assert.strictEqual(rules.length, 1);
       assert.strictEqual(rules[0].mode, "multi-select");
     });
+
+    it("loads valid version 2 reorganization assets", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "reorg.yaml"),
+        [
+          "schemaVersion: 2",
+          "tool: test",
+          "home: /tmp/test",
+          "reorg:",
+          "  assets:",
+          "    - kind: skill",
+          "      canonical: skills",
+          "      entries: directories",
+          "      locations:",
+          "        - path: ~/.agents/skills",
+          "          targetClass: universal",
+          "mappings: []",
+        ].join("\n"),
+      );
+      const [rule] = fresh().loadRules();
+      assert.strictEqual(rule.schemaVersion, 2);
+      assert.deepStrictEqual(rule.reorgAssets[0], {
+        kind: "skill",
+        canonical: "skills",
+        entries: "directories",
+        locations: [{ path: "~/.agents/skills", targetClass: "universal" }],
+      });
+    });
+
+    it("ignores reorganization data on legacy rule schemas", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "legacy.yaml"),
+        [
+          "tool: legacy",
+          "home: /tmp/legacy",
+          "reorg:",
+          "  assets:",
+          "    - kind: skill",
+          "      canonical: skills",
+          "      entries: directories",
+          "      locations:",
+          "        - path: ~/.agents/skills",
+          "          targetClass: universal",
+          "mappings: []",
+        ].join("\n"),
+      );
+      assert.deepStrictEqual(fresh().loadRules()[0].reorgAssets, []);
+    });
+
+    it("fails closed on unknown future reorganization schemas", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "future.yaml"),
+        [
+          "schemaVersion: 3",
+          "tool: future",
+          "home: /tmp/future",
+          "reorg:",
+          "  assets:",
+          "    - kind: skill",
+          "      canonical: skills",
+          "      entries: directories",
+          "      locations:",
+          "        - path: ~/.agents/skills",
+          "          targetClass: universal",
+          "mappings: []",
+        ].join("\n"),
+      );
+      assert.deepStrictEqual(fresh().loadRules()[0].reorgAssets, []);
+    });
+
+    it("rejects unsafe canonical paths and mistyped target classes", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "unsafe.yaml"),
+        [
+          "schemaVersion: 2",
+          "tool: unsafe",
+          "home: /tmp/unsafe",
+          "reorg:",
+          "  assets:",
+          "    - kind: skill",
+          "      canonical: ../../outside",
+          "      entries: directories",
+          "      locations:",
+          "        - path: ~/.agents/skills",
+          "          targetClass: universl",
+          "mappings: []",
+        ].join("\n"),
+      );
+      assert.deepStrictEqual(fresh().loadRules()[0].reorgAssets, []);
+    });
+
+    it("rejects relative harness locations", () => {
+      mkdir(rulesDir);
+      mkfile(
+        path.join(rulesDir, "relative.yaml"),
+        [
+          "schemaVersion: 2",
+          "tool: relative",
+          "home: /tmp/relative",
+          "reorg:",
+          "  assets:",
+          "    - kind: skill",
+          "      canonical: skills",
+          "      entries: directories",
+          "      locations:",
+          "        - path: .agents/skills",
+          "          targetClass: universal",
+          "mappings: []",
+        ].join("\n"),
+      );
+      assert.deepStrictEqual(fresh().loadRules()[0].reorgAssets, []);
+    });
   });
 
   describe("seedDefaultRules", () => {
@@ -521,6 +666,20 @@ describe("load-config", () => {
     });
   });
 
+  describe("writeReorgSettings", () => {
+    it("persists the source root and exactly one supported link strategy", () => {
+      fresh().writeReorgSettings({ sourceRoot: "/canonical", linkStrategy: "provider-only" });
+      const raw = fs.readFileSync(configPath, "utf8");
+      assert.ok(raw.includes("sourceRoot: /canonical"));
+      assert.ok(raw.includes("linkStrategy: provider-only"));
+    });
+
+    it("normalizes an invalid strategy before writing", () => {
+      fresh().writeReorgSettings({ sourceRoot: "/canonical", linkStrategy: "both" });
+      assert.ok(fs.readFileSync(configPath, "utf8").includes("linkStrategy: universal-first"));
+    });
+  });
+
   describe("bundled rules", () => {
     it("BUNDLED_RULES_DIR points to a directory with YAML files", () => {
       const { BUNDLED_RULES_DIR } = fresh();
@@ -529,25 +688,87 @@ describe("load-config", () => {
       assert.ok(files.length > 0);
     });
 
-    it("bundled rules contain claude, codex, cursor, opencode, gemini, copilot", () => {
+    it("bundled rules contain the supported harness catalog", () => {
       const { BUNDLED_RULES_DIR } = fresh();
       const files = fs.readdirSync(BUNDLED_RULES_DIR).filter((f) => f.endsWith(".yaml"));
       const names = files.map((f) => f.replace(".yaml", ""));
-      for (const name of ["claude", "codex", "cursor", "opencode", "gemini", "copilot"]) {
+      for (const name of ["claude", "codex", "cursor", "opencode", "gemini", "copilot", "goose", "reasonix"]) {
         assert.ok(names.includes(name), `missing bundled rule: ${name}`);
+      }
+    });
+
+    it("merges current reorg metadata into legacy user copies without replacing custom sync mappings", () => {
+      const explicitRulesDir = process.env.SADDLE_RULES_DIR;
+      const explicitSaddleDir = process.env.SADDLE_DIR;
+      const standardDir = path.join(tmpDir, "standard-config");
+
+      try {
+        delete process.env.SADDLE_RULES_DIR;
+        process.env.SADDLE_DIR = standardDir;
+        mkfile(
+          path.join(standardDir, "rules", "copilot.yaml"),
+          [
+            "tool: copilot",
+            "label: My Copilot",
+            "binary: custom-copilot",
+            "home: ~/.copilot",
+            "mappings:",
+            "  - type: directory",
+            "    source: my-agents",
+            "    target: agents",
+          ].join("\n"),
+        );
+
+        const copilot = fresh()
+          .loadRules({ initialize: false })
+          .find((rule) => rule.name === "copilot");
+
+        assert.strictEqual(copilot.label, "My Copilot");
+        assert.strictEqual(copilot.binary.which, "custom-copilot");
+        assert.deepStrictEqual(copilot.mappings, [{ type: "directory", source: "my-agents", target: "agents" }]);
+        assert.strictEqual(copilot.schemaVersion, 2);
+        assert.ok(
+          copilot.reorgAssets[0].locations.some(
+            (location) => location.path === "~/.agents/skills" && location.targetClass === "universal",
+          ),
+        );
+
+        mkfile(
+          path.join(standardDir, "rules", "copilot.yaml"),
+          [
+            "tool: copilot",
+            "home: ~/.copilot",
+            "reorg:",
+            "  assets:",
+            "    - kind: skill",
+            "      canonical: unsafe-custom-skills",
+            "      entries: directories",
+            "      locations:",
+            "        - path: ~/.copilot/custom-skills",
+            "          targetClass: provider",
+            "mappings: []",
+          ].join("\n"),
+        );
+        const unversionedCustom = fresh()
+          .loadRules({ initialize: false })
+          .find((rule) => rule.name === "copilot");
+        assert.strictEqual(unversionedCustom.schemaVersion, 1);
+        assert.deepStrictEqual(unversionedCustom.reorgAssets, []);
+      } finally {
+        process.env.SADDLE_RULES_DIR = explicitRulesDir;
+        process.env.SADDLE_DIR = explicitSaddleDir;
+        clearConfigModules();
       }
     });
   });
 
   describe("loadConfig — invalid YAML", () => {
-    it("falls back to DEFAULT_SOURCE_ROOT when YAML is unparseable", () => {
+    it("falls back to the caller source root when YAML is unparseable", () => {
       mkfile(configPath, "key: [unclosed bracket");
-      const { loadConfig, DEFAULT_SOURCE_ROOT } = fresh();
+      const { loadConfig } = fresh();
       const config = loadConfig("/fallback");
-      const expected = DEFAULT_SOURCE_ROOT.startsWith("~/")
-        ? path.join(os.homedir(), DEFAULT_SOURCE_ROOT.slice(1))
-        : DEFAULT_SOURCE_ROOT;
-      assert.strictEqual(config.sourceRoot, expected);
+      assert.strictEqual(config.sourceRoot, "/fallback");
+      assert.strictEqual(config.configuredSourceRoot, null);
     });
 
     it("returns the parse error message on config.configError", () => {

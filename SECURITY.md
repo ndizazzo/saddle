@@ -2,15 +2,15 @@
 
 ## Scope
 
-Saddle creates symlinks from this repository into your AI tool config directories (`~/.claude`, `~/.codex`, `~/.cursor`, `~/.gemini`, `~/.copilot`, `~/.config/opencode`). No network requests are made. No credentials are read or stored.
+Saddle creates symlinks between a user-selected canonical source root and supported AI tool config directories. `saddle reorg` reads only the reusable asset locations declared in provider rules; bundled rules do not scan credential files. No network requests are made and no credentials are stored.
 
 ## Supported Versions
 
 Security fixes are applied to the latest release on `main`. There are no long-term support branches at this time.
 
 | Version | Supported |
-|---------|-----------|
-| 0.1.x   | ✓ Yes     |
+| ------- | --------- |
+| 0.10.x  | ✓ Yes     |
 
 ## Reporting a Vulnerability
 
@@ -19,6 +19,7 @@ Security fixes are applied to the latest release on `main`. There are no long-te
 Report security issues privately by emailing the maintainer directly or using [GitHub's private vulnerability reporting](https://github.com/ndizazzo/saddle/security/advisories/new).
 
 Include:
+
 - A description of the vulnerability
 - Steps to reproduce (or a proof-of-concept)
 - The potential impact
@@ -31,6 +32,8 @@ You should receive an acknowledgement within 72 hours. If you do not, follow up 
 - Path traversal: crafted rule YAML causing links to be created outside the expected target directories
 - Arbitrary code execution triggered by malformed YAML rule files or config files
 - Symlink following attacks during install or uninstall that could overwrite unintended files
+- Reorganization rules that escape the canonical source root or overlap a managed harness root
+- Incomplete rollback that leaves a replaced target without its transaction backup
 
 ## What We Do Not Consider a Vulnerability
 

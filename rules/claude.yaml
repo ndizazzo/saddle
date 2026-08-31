@@ -1,9 +1,31 @@
+schemaVersion: 2
 tool: claude
 label: Claude Code
 binary: claude
 home: ~/.claude
 enabled: true
 mode: multi-select
+
+reorg:
+  assets:
+    - kind: skill
+      canonical: skills
+      entries: directories
+      locations:
+        - path: ~/.claude/skills
+          targetClass: provider
+    - kind: agent
+      canonical: agents/claude
+      entries: files
+      locations:
+        - path: ~/.claude/agents
+          targetClass: provider
+    - kind: command
+      canonical: commands/claude
+      entries: files
+      locations:
+        - path: ~/.claude/commands
+          targetClass: provider
 
 mappings:
   - type: skills

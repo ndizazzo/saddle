@@ -5,7 +5,7 @@ Thank you for considering a contribution. This document covers how to get set up
 ## Prerequisites
 
 - **Node.js 18 or newer** (the project enforces `engines.node >= 18`)
-- **npm** (comes with Node)
+- **pnpm 10**
 - **Git**
 
 ## Getting Started
@@ -13,10 +13,10 @@ Thank you for considering a contribution. This document covers how to get set up
 ```bash
 git clone https://github.com/ndizazzo/saddle.git
 cd saddle
-npm install
+pnpm install
 ```
 
-Husky will install a pre-commit hook automatically during `npm install`.
+Husky installs the Git hooks during `pnpm install`.
 
 ## Project Structure
 
@@ -25,6 +25,8 @@ Husky will install a pre-commit hook automatically during `npm install`.
 | `bin/saddle.js`           | CLI entry point                                   |
 | `scripts/install.js`      | Main installer orchestrator                       |
 | `scripts/install-core.js` | Core logic (profile discovery, linking, lockfile) |
+| `scripts/reorg-core.js`   | Reorganization scan, plan, transaction, rollback  |
+| `scripts/reorg.js`        | `saddle reorg` CLI orchestration                  |
 | `scripts/install-ui.mjs`  | Ink TUI (ESM)                                     |
 | `scripts/load-config.js`  | Config loading + rule normalisation               |
 | `scripts/tui/`            | TUI components and utilities                      |
@@ -34,7 +36,7 @@ Husky will install a pre-commit hook automatically during `npm install`.
 ## Running Tests
 
 ```bash
-npm test
+pnpm test
 ```
 
 All tests must pass before any PR is merged. The suite uses the Node.js built-in `node:test` runner — no additional test dependencies.
@@ -42,7 +44,8 @@ All tests must pass before any PR is merged. The suite uses the Node.js built-in
 ## Running the Linter
 
 ```bash
-npm run lint:agents
+pnpm lint
+pnpm run lint:agents
 ```
 
 This validates structural invariants (required files, executables, scripts, dependencies). It runs automatically on every commit via the Husky pre-commit hook.
@@ -57,6 +60,7 @@ saddle
 saddle --dry-run --all
 saddle --list
 saddle --help
+saddle reorg --source /tmp/saddle-fixture --dry-run
 ```
 
 ## Code Style
@@ -81,7 +85,9 @@ To add support for a new AI coding tool:
 
 1. Create `rules/<toolname>.yaml` following the schema of an existing rule file
 2. Add the tool to the support matrix in `README.md`
-3. Run `npm test` to confirm nothing regressed
+3. Add `schemaVersion: 2` and `reorg.assets` when the harness has reusable global definitions
+4. Test both routing strategies and repeat-run idempotency
+5. Run `pnpm test` to confirm nothing regressed
 
 The installer picks up new rule files automatically via `loadRules()`.
 
@@ -89,7 +95,10 @@ See the **Writing Rules** section in `README.md` for the complete YAML schema, i
 
 - `tool`, `label`, `home`, `binary`, `enabled`, `mode`
 - `mappings` for skills, files, and directories
+- `reorg.assets` for canonical collections and universal/provider target locations
 - `mode: single-select` for mutually exclusive options (vs. `multi-select` default)
+
+Reorganization rules must use documented harness paths. A provider name such as DeepSeek is not itself a harness; map the actual client that owns the on-disk format (for example, Reasonix). Never include credential files or broad configuration homes in a reorganization asset.
 
 ## Reporting Issues
 

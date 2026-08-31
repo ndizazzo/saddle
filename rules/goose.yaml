@@ -1,8 +1,8 @@
 schemaVersion: 2
-tool: copilot
-label: Copilot
-binary: copilot
-home: ~/.copilot
+tool: goose
+label: Goose
+binary: goose
+home: ~/.config/goose
 enabled: true
 mode: multi-select
 
@@ -14,13 +14,7 @@ reorg:
       locations:
         - path: ~/.agents/skills
           targetClass: universal
-        - path: ~/.copilot/skills
-          targetClass: provider
-    - kind: agent
-      canonical: agents/copilot
-      entries: files
-      locations:
-        - path: ~/.copilot/agents
+        - path: ~/.config/goose/skills
           targetClass: provider
 
 mappings:
@@ -28,7 +22,3 @@ mappings:
     source: skills
     target: skills
     itemType: skill
-  - type: directory
-    source: agents
-    target: agents
-    itemType: agent

@@ -1,0 +1,22 @@
+schemaVersion: 2
+tool: reasonix
+label: Reasonix (DeepSeek)
+binary: reasonix
+home: ~/.reasonix
+enabled: true
+mode: multi-select
+
+reorg:
+  assets:
+    - kind: skill
+      canonical: skills
+      entries: directories
+      locations:
+        - path: ~/.reasonix/skills
+          targetClass: provider
+
+mappings:
+  - type: skills
+    source: skills
+    target: skills
+    itemType: skill

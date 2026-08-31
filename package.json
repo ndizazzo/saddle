@@ -1,7 +1,7 @@
 {
   "name": "saddle-cli",
-  "version": "0.9.3",
-  "description": "CLI that syncs AI coding tool configs (Claude, Codex, Copilot, Cursor, Gemini, OpenCode) across machines via symlinks",
+  "version": "0.10.0",
+  "description": "Detect, reorganize, and sync AI coding agent configs through one canonical source and rule-based symlinks",
   "author": "ndizazzo",
   "license": "MIT",
   "repository": {
@@ -20,12 +20,16 @@
     "gemini",
     "opencode",
     "oh-my-openagent",
+    "goose",
+    "reasonix",
+    "deepseek",
     "symlinks"
   ],
   "files": [
     "bin/",
     "scripts/",
-    "rules/"
+    "rules/",
+    "docs/"
   ],
   "bin": {
     "saddle": "bin/saddle.js"
@@ -36,7 +40,7 @@
     "lint:agents": "bash ./scripts/agent-lint.sh",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test tests/load-config.test.js tests/install-core.test.js tests/format.test.mjs",
+    "test": "node --test tests/load-config.test.js tests/install-core.test.js tests/reorg-core.test.js tests/format.test.mjs",
     "prepare": "husky || true"
   },
   "engines": {

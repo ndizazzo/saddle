@@ -18,8 +18,8 @@
 </p>
 
 <p align="center">
-  Keep your agents, skills, commands, and configurations in sync across<br>
-  Claude Code, Codex, Copilot, Cursor, Gemini, and OpenCode — on every machine.
+  Detect, reorganize, and sync agents, skills, commands, and configurations across<br>
+  Claude Code, Codex, Copilot, Cursor, Gemini, Goose, OpenCode, and Reasonix.
 </p>
 
 <p align="center">
@@ -31,21 +31,39 @@
 ## Quick Start
 
 ```bash
-# Clone and set up
-git clone https://github.com/ndizazzo/saddle.git ~/dev/ai
-cd ~/dev/ai && pnpm install
+# Install the CLI
+npm install -g saddle-cli
 
-# Launch the interactive installer
-npx saddle
+# Import scattered agent configuration into a source root you choose
+saddle reorg --source ~/dotfiles/agents
 
-# Or run non-interactively
-npx saddle --yes --all        # apply everything
-npx saddle --dry-run --all    # preview first
-npx saddle --check            # verify sync
-npx saddle --uninstall        # clean removal
+# Or inspect and apply non-interactively
+saddle reorg --source ~/dotfiles/agents --dry-run
+saddle reorg --source ~/dotfiles/agents --yes
+saddle reorg --check
 ```
 
-The interactive TUI detects which AI tools are installed and walks you through linking skills, agents, commands, and config files for each.
+The source root is not tied to `~/dev/ai` or to the Saddle checkout. Use any durable local path, dotfiles repository, or synced directory. Saddle stores the confirmed choice in `~/.config/saddle/config.yaml`.
+
+For an existing canonical tree, run `saddle` (or `saddle sync`) to choose individual mappings. See [One-shot reorganization](docs/reorg.md) for the migration workflow and safety model.
+
+---
+
+## One-shot Reorganization
+
+`saddle reorg` scans supported coding harnesses, builds a deterministic plan, and shows the proposed imports, links, and duplicate removals before writing anything.
+
+```bash
+# Prefer ~/.agents/* where a harness supports it; use native folders as fallback
+saddle reorg --source ~/dotfiles/agents --strategy universal-first
+
+# Use harness-specific locations only
+saddle reorg --source ~/dotfiles/agents --strategy provider-only
+```
+
+The strategies are mutually exclusive. A compatible harness/asset is never linked to both a universal and a provider-specific location in the same plan. Press Enter to apply in the TUI or Esc to reject without creating config, state, or symlinks.
+
+Every apply is precondition-checked and transaction-journaled. If an action fails, Saddle restores completed changes from the transaction backup. A clean repeat run produces no actions; if one harness adds a new local definition later, the next plan contains only that drift.
 
 ---
 
@@ -55,16 +73,20 @@ The interactive TUI detects which AI tools are installed and walks you through l
 | ----------- | -------------------- | :----: | :----: | :------: | :---------: | :-------------------------------------: |
 | Claude Code | `~/.claude`          |   ✓    |   ✓    |    ✓     |      —      |                    —                    |
 | Codex       | `~/.codex`           |   ✓    |   ✓    |    ✓     | `AGENTS.md` |                    —                    |
-| Copilot     | `~/.copilot`         |   ✓    |   ✓    |    ✓     |      —      |                    —                    |
+| Copilot     | `~/.copilot`         |   ✓    |   ✓    |    —     |      —      |                    —                    |
 | Cursor      | `~/.cursor`          |   ✓    |   ✓    |    ✓     |      —      |                    —                    |
 | Gemini      | `~/.gemini`          |   ✓    |   ✓    |    ✓     | `GEMINI.md` | `configurations/gemini/` → `~/.gemini/` |
 | OpenCode    | `~/.config/opencode` |   ✓    |   ✓    |    ✓     | `AGENTS.md` |   `opencode/` → `~/.config/opencode/`   |
+| Goose       | `~/.config/goose`    |   ✓    |   —    |    —     |      —      |                    —                    |
+| Reasonix    | `~/.reasonix`        |   ✓    |   —    |    —     |      —      |                    —                    |
 
 ---
 
 ## Features
 
 **Interactive TUI** — A beautiful terminal interface built with Ink. Browse tools, preview diffs, toggle individual actions — all from your terminal.
+
+**One-shot Reorganization** — Inventory scattered definitions, import them into a configurable canonical root, and replace duplicates with verified relative symlinks.
 
 **Headless-ready** — Full non-interactive mode for CI/CD. `--dry-run`, `--yes`, `--all`, `--check` — automate everything.
 
@@ -91,34 +113,33 @@ The interactive TUI detects which AI tools are installed and walks you through l
 ## Canonical Layout
 
 ```
-saddle/
-├── agents/              # Per-tool instruction files and shared agent definitions
-│   ├── codex/AGENTS.md
-│   ├── gemini/GEMINI.md
-│   └── opencode/AGENTS.md
-├── commands/            # Slash command files → each tool's commands/
-├── skills/              # Skill subdirectories → each tool's skills/
-├── configurations/
-│   └── gemini/          # Gemini-specific config → ~/.gemini/
-├── opencode/            # OpenCode-specific config → ~/.config/opencode/
-├── rules/               # Per-tool installer rules (YAML)
-│   ├── claude.yaml
-│   ├── codex.yaml
-│   ├── copilot.yaml
-│   ├── cursor.yaml
-│   ├── gemini.yaml
-│   └── opencode.yaml
-└── scripts/             # Repo maintenance helpers
+<sourceRoot>/
+├── agents/              # Provider-format agent definitions
+│   ├── claude/
+│   ├── copilot/
+│   ├── cursor/
+│   ├── gemini/
+│   └── opencode/
+├── commands/            # Provider-format slash command files
+│   ├── claude/
+│   ├── cursor/
+│   ├── gemini/
+│   └── opencode/
+└── skills/              # Portable Agent Skills directories
+    └── <skill>/SKILL.md
 ```
 
-Keep the real files in this repo and rebuild tool-specific links on each machine. Do not sync `~/.claude`, `~/.codex`, `~/.cursor`, `~/.gemini`, `~/.copilot`, or `~/.config/opencode` symlinks directly between machines.
+Only collections found on the machine are created. Existing `saddle sync` sources may also contain tool configuration collections. Bundled provider rules ship with Saddle; user overrides live in `~/.config/saddle/rules`, outside the canonical source root.
+
+Keep the real files in the source root and rebuild tool-specific links on each machine. Do not sync `~/.claude`, `~/.codex`, `~/.cursor`, `~/.gemini`, `~/.copilot`, or `~/.config/opencode` symlinks directly between machines.
 
 ---
 
 ## CLI Reference
 
 ```
-saddle [options]
+saddle [sync] [options]
+saddle reorg [options]
 ```
 
 | Flag                | Description                                                   |
@@ -132,6 +153,18 @@ saddle [options]
 | `--uninstall`       | Remove symlinks recorded in lockfile                          |
 | `--verbose`         | Show extra detail (source paths, resolved targets)            |
 | `--quiet`           | Suppress ok/link/skip/mkdir output; errors and summary only   |
+
+### Reorganization Options
+
+| Flag               | Description                                                            |
+| ------------------ | ---------------------------------------------------------------------- |
+| `--source path`    | Canonical root to import into; overrides environment and config        |
+| `--strategy value` | `universal-first` or `provider-only`                                   |
+| `--dry-run`        | Print the complete plan without creating config, state, or links       |
+| `--json`           | Emit a machine-readable read-only plan                                 |
+| `--check`          | Exit 1 when changes or conflicts remain; otherwise exit 0              |
+| `--yes`            | Apply a conflict-free plan without the interactive confirmation screen |
+| `--quiet`          | Suppress per-action apply output                                       |
 
 ### Interactive Mode
 
@@ -158,11 +191,15 @@ npx saddle --profile claude-skills-skills,cursor-directory-agents --yes
 
 ## Configuration
 
-| Variable           | Default                        | Description             |
-| ------------------ | ------------------------------ | ----------------------- |
-| `SADDLE_DIR`       | `~/.config/saddle`             | Base config directory   |
-| `SADDLE_CONFIG`    | `~/.config/saddle/config.yaml` | Path to config file     |
-| `SADDLE_RULES_DIR` | `~/.config/saddle/rules`       | Path to rules directory |
+| Variable               | Default                        | Description                                      |
+| ---------------------- | ------------------------------ | ------------------------------------------------ |
+| `SADDLE_DIR`           | `~/.config/saddle`             | Base config directory                            |
+| `SADDLE_CONFIG`        | `~/.config/saddle/config.yaml` | Path to config file                              |
+| `SADDLE_RULES_DIR`     | `~/.config/saddle/rules`       | Path to rules directory                          |
+| `SADDLE_SOURCE_ROOT`   | unset                          | Canonical root; overrides `sourceRoot` in config |
+| `SADDLE_LINK_STRATEGY` | `universal-first`              | Reorganization routing strategy                  |
+
+The equivalent config keys are `sourceRoot` and `linkStrategy`. `sourceRoot` has no machine-specific default; interactive commands ask before using one.
 
 ---
 
@@ -173,6 +210,7 @@ Rules are YAML files that define how to sync a tool's configurations. Each rule 
 ### Rule Schema
 
 ```yaml
+schemaVersion: 2 # Required for reorganization rules
 tool: claude # Unique identifier for this tool
 label: Claude Code # Display name in the TUI
 binary: # How to detect if tool is installed (optional)
@@ -184,6 +222,17 @@ binary: # How to detect if tool is installed (optional)
 home: ~/.claude # Tool's config directory (supports ~)
 enabled: true # Include in sync (default: true)
 mode: multi-select # Selection mode: multi-select (default) or single-select
+
+reorg:
+  assets:
+    - kind: skill # skill | agent | command | instruction | config
+      canonical: skills # Directory relative to the configured source root
+      entries: directories # directories | files
+      locations:
+        - path: ~/.agents/skills
+          targetClass: universal
+        - path: ~/.config/example/skills
+          targetClass: provider
 
 mappings: # List of what to link
   - type: skills # Type: skills | file | directory
@@ -202,15 +251,19 @@ mappings: # List of what to link
 
 ### Key Fields
 
-| Field      | Required | Type    | Notes                                              |
-| ---------- | -------- | ------- | -------------------------------------------------- |
-| `tool`     | ✓        | string  | Machine-readable identifier (lowercase, no spaces) |
-| `label`    | ✗        | string  | Display name; defaults to capitalized `tool`       |
-| `binary`   | ✗        | object  | Detection method; omit to never detect             |
-| `home`     | ✓        | string  | Tool's config directory; supports `~`              |
-| `enabled`  | ✗        | boolean | Default: `true`. Set `false` to skip syncing       |
-| `mode`     | ✗        | string  | Selection mode (see below)                         |
-| `mappings` | ✓        | array   | List of symlink definitions                        |
+| Field           | Required | Type    | Notes                                                        |
+| --------------- | -------- | ------- | ------------------------------------------------------------ |
+| `schemaVersion` | reorg    | integer | Use `2` for the reorganization schema                        |
+| `tool`          | ✓        | string  | Machine-readable identifier (lowercase, no spaces)           |
+| `label`         | ✗        | string  | Display name; defaults to `tool`                             |
+| `binary`        | ✗        | object  | Binary and platform-path detection                           |
+| `home`          | ✓        | string  | Tool's config directory; supports `~`                        |
+| `enabled`       | ✗        | boolean | Default: `true`. Set `false` to skip                         |
+| `mode`          | ✗        | string  | Sync selection mode                                          |
+| `reorg.assets`  | ✗        | array   | Canonical collections and universal/provider discovery roots |
+| `mappings`      | ✓        | array   | Existing-source sync definitions                             |
+
+Reorganization locations fail closed: unsafe canonical paths, relative harness paths, unknown entry modes, and mistyped target classes are ignored. See [the full reorganization rule contract](docs/reorg.md#provider-rule-schema).
 
 ### Selection Mode
 
@@ -326,9 +379,19 @@ Links to official documentation for each supported AI coding tool.
 - [Slash Commands](https://cursor.com/docs/cli/reference/slash-commands) — in-session commands
 - [Agent Modes](https://cursor.com/docs/agent/modes) — plan, ask, and agent modes
 - [Rules](https://cursor.com/docs/context/rules) — .cursor/rules/ configuration
-- [Skills](https://cursor.com/docs/context/commands) — multi-step workflow files
+- [Skills](https://cursor.com/docs/skills) — portable Agent Skills and discovery roots
+- [Subagents](https://cursor.com/docs/subagents) — user and project agent definitions
 - [MCP in CLI](https://cursor.com/docs/cli/mcp) — MCP server management
 - [Headless / CI](https://cursor.com/docs/cli/headless) — non-interactive scripting
+
+</details>
+
+<details>
+<summary><strong>GitHub Copilot CLI</strong></summary>
+
+- [CLI Command Reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) — commands, settings, skill roots, and customization reference
+- [Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills) — personal skills in `~/.copilot/skills` or `~/.agents/skills`
+- [Custom Agents](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli) — user agents in `~/.copilot/agents`
 
 </details>
 
@@ -356,10 +419,26 @@ Links to official documentation for each supported AI coding tool.
 - [Configuration Reference](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md) — settings.json schema
 - [GEMINI.md Context Files](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini-md.md) — agent memory and instructions
 - [Custom Commands](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/custom-commands.md) — .toml custom slash commands
-- [Skills](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/skills.md) — agent skills system
+- [Skills](https://geminicli.com/docs/cli/using-agent-skills/) — agent skills system and discovery roots
 - [MCP Server Integration](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md) — MCP setup
 - [Plan Mode](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/plan-mode.md) — read-only planning
 - [Headless / Non-interactive](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/headless.md) — CI/automation usage
+
+</details>
+
+<details>
+<summary><strong>Goose</strong></summary>
+
+- [Using Skills](https://goose-docs.ai/docs/guides/context-engineering/using-skills/) — global Agent Skills discovery and Goose-specific skills
+- [Goose Documentation](https://goose-docs.ai/) — installation, configuration, and extensions
+
+</details>
+
+<details>
+<summary><strong>Reasonix (DeepSeek)</strong></summary>
+
+- [Reasonix Documentation](https://reasonix.io/docs/) — DeepSeek-oriented coding harness configuration
+- [DeepSeek API Documentation](https://api-docs.deepseek.com/) — model-provider reference; on-disk definitions remain owned by the client harness
 
 </details>
 

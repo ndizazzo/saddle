@@ -1,9 +1,33 @@
+schemaVersion: 2
 tool: gemini
 label: Gemini
 binary: gemini
 home: ~/.gemini
 enabled: true
 mode: multi-select
+
+reorg:
+  assets:
+    - kind: skill
+      canonical: skills
+      entries: directories
+      locations:
+        - path: ~/.agents/skills
+          targetClass: universal
+        - path: ~/.gemini/skills
+          targetClass: provider
+    - kind: agent
+      canonical: agents/gemini
+      entries: files
+      locations:
+        - path: ~/.gemini/agents
+          targetClass: provider
+    - kind: command
+      canonical: commands/gemini
+      entries: files
+      locations:
+        - path: ~/.gemini/commands
+          targetClass: provider
 
 mappings:
   - type: file

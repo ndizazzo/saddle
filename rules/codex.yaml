@@ -1,3 +1,4 @@
+schemaVersion: 2
 tool: codex
 label: Codex
 binary:
@@ -8,10 +9,19 @@ home: ~/.codex
 enabled: true
 mode: multi-select
 
+reorg:
+  assets:
+    - kind: skill
+      canonical: skills
+      entries: directories
+      locations:
+        - path: ~/.agents/skills
+          targetClass: universal
+
 mappings:
   - type: skills
     source: skills
-    target: skills
+    target: ../.agents/skills
     itemType: skill
   - type: directory
     source: agents
