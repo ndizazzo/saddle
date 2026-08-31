@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildChangeGroups } from "../scripts/tui/ReorgApp.mjs";
+import { buildChangeGroups } from "../scripts/tui/reorg-view-model.mjs";
 
 describe("reorganization review groups", () => {
   it("groups actions by operation, kind, and path pair in apply order", () => {
