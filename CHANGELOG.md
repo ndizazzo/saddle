@@ -25,6 +25,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Copilot detection now uses the standalone `copilot` CLI; skills support both current personal roots and the unsupported `~/.copilot/commands` mapping has been removed
 - Bundled reorganization metadata is merged into older user-copied provider rules without overwriting custom sync mappings
 - Dry-run, JSON, check, and rejected TUI plans do not initialize Saddle config or state
+- The reorganization review now explains the final state, apply order, grouped path changes, and exact files before confirmation
 
 ### Fixed
 

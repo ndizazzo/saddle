@@ -19,123 +19,286 @@ const labelByType = {
   "remove-duplicate": "REMOVE",
 };
 
-function StrategySummary({ plan, height }) {
-  const universal = plan.coverage.filter((item) => item.supported && item.targetClass === "universal");
-  const provider = plan.coverage.filter((item) => item.supported && item.targetClass === "provider");
-  const unsupported = plan.coverage.filter((item) => !item.supported);
-  const roots = new Map();
+function compactPath(value) {
+  const home = process.env.HOME;
+  if (!home) return value;
+  if (value === home) return "~";
+  return value.startsWith(`${home}${path.sep}`) ? `~${value.slice(home.length)}` : value;
+}
 
-  for (const item of plan.coverage.filter((candidate) => candidate.supported)) {
-    for (const endpoint of item.endpoints) {
-      const key = `${item.targetClass}:${endpoint}`;
-      if (!roots.has(key)) roots.set(key, { path: endpoint, targetClass: item.targetClass });
+function pluralizeKind(kind, count) {
+  return count === 1 ? kind : `${kind}s`;
+}
+
+function countPlanActions(actions) {
+  const counts = { import: 0, link: 0, remove: 0 };
+  for (const action of actions) {
+    if (action.type === "import") counts.import += 1;
+    if (action.type === "link") counts.link += 1;
+    if (action.type === "remove-duplicate") counts.remove += 1;
+  }
+  return counts;
+}
+
+export function buildChangeGroups(actions) {
+  const groups = new Map();
+
+  for (const action of actions) {
+    const sourceRoot = path.dirname(action.source);
+    const targetRoot = path.dirname(action.target);
+    const key = [action.type, action.kind, sourceRoot, targetRoot].join("::");
+    if (!groups.has(key)) {
+      groups.set(key, {
+        id: key,
+        type: action.type,
+        kind: action.kind,
+        sourceRoot,
+        targetRoot,
+        targetClass: action.targetClass,
+        tools: new Set(),
+        actions: [],
+      });
     }
+    const group = groups.get(key);
+    group.actions.push(action);
+    for (const tool of action.tools) group.tools.add(tool);
   }
 
-  const selectedRoots = Array.from(roots.values()).sort((left, right) => {
-    const leftRank = left.targetClass === "universal" ? 0 : 1;
-    const rightRank = right.targetClass === "universal" ? 0 : 1;
-    return leftRank - rightRank || left.path.localeCompare(right.path);
-  });
-  const visibleLimit = Math.max(3, height - 11);
-  const visibleRoots = selectedRoots.slice(0, visibleLimit);
-  const hidden = selectedRoots.length - visibleRoots.length;
+  const priority = { import: 0, link: 1, "remove-duplicate": 2 };
+  return Array.from(groups.values())
+    .map((group) => ({ ...group, tools: Array.from(group.tools).sort() }))
+    .sort(
+      (left, right) =>
+        priority[left.type] - priority[right.type] ||
+        left.targetRoot.localeCompare(right.targetRoot) ||
+        left.sourceRoot.localeCompare(right.sourceRoot),
+    );
+}
+
+function OutcomeSummary({ plan, counts, compact }) {
+  const sourceRoot = compactPath(plan.sourceRoot);
+  if (compact) {
+    return h(
+      Frame,
+      {
+        title: plan.actions.length > 0 ? "What will change" : "No changes needed",
+        color: plan.actions.length > 0 ? "orange" : "green",
+        flexGrow: 1,
+      },
+      h(
+        Box,
+        { columnGap: 1, flexWrap: "wrap" },
+        h(TerminalTag, { tone: "orange" }, `${plan.actions.length} changes`),
+        h(TerminalTag, { tone: "gray" }, `${plan.unchanged.length} untouched`),
+      ),
+      h(
+        Text,
+        { color: theme.color.fg.primary },
+        plan.actions.length > 0
+          ? `${counts.import} copy -> ${counts.link} link -> ${counts.remove} remove after verification.`
+          : `Every selected agent already points to ${sourceRoot}.`,
+      ),
+      plan.actions.length > 0
+        ? h(Text, { color: theme.color.fg.muted }, `Canonical source: ${sourceRoot}. Failures restore earlier changes.`)
+        : null,
+    );
+  }
 
   return h(
     Frame,
-    { title: "Routing", color: plan.strategy === "universal-first" ? "cyan" : "blue", flexGrow: 1 },
+    {
+      title: plan.actions.length > 0 ? "What will change" : "No changes needed",
+      color: plan.actions.length > 0 ? "orange" : "green",
+      flexGrow: 1,
+    },
     h(
       Box,
-      { marginBottom: 1, columnGap: 1, flexWrap: "wrap" },
-      h(TerminalTag, { tone: plan.strategy === "universal-first" ? "cyan" : "blue" }, plan.strategy),
-      universal.length > 0 ? h(TerminalTag, { tone: "cyan" }, `${universal.length} shared`) : null,
-      provider.length > 0 ? h(TerminalTag, { tone: "blue" }, `${provider.length} native`) : null,
-      unsupported.length > 0 ? h(TerminalTag, { tone: "orange" }, `${unsupported.length} unsupported`) : null,
+      { columnGap: 1, flexWrap: "wrap" },
+      h(TerminalTag, { tone: "orange" }, `${plan.actions.length} filesystem changes`),
+      counts.import > 0 ? h(TerminalTag, { tone: "magenta" }, `${counts.import} copied in`) : null,
+      counts.link > 0 ? h(TerminalTag, { tone: "cyan" }, `${counts.link} linked back`) : null,
+      counts.remove > 0 ? h(TerminalTag, { tone: "orange" }, `${counts.remove} duplicates removed`) : null,
+      h(TerminalTag, { tone: "gray" }, `${plan.unchanged.length} untouched`),
     ),
-    h(Text, { color: theme.color.fg.secondary }, "Each harness asset uses one endpoint class."),
-    h(Box, { height: 1 }),
-    h(Text, { color: theme.color.fg.primary, bold: true }, "Selected roots"),
-    ...visibleRoots.map((root) =>
-      h(
-        Box,
-        { key: `${root.targetClass}-${root.path}`, columnGap: 1 },
-        h(
+    h(
+      Text,
+      { color: theme.color.fg.primary },
+      plan.actions.length > 0
+        ? `Saddle will collect unique files in ${sourceRoot}, then point each selected agent back to them.`
+        : `Every selected agent already points to ${sourceRoot}.`,
+    ),
+    counts.remove > 0
+      ? h(
           Text,
-          { color: root.targetClass === "universal" ? palette.cyan : palette.blue, bold: true },
-          root.targetClass === "universal" ? "SHR" : "NAT",
-        ),
-        h(ShortPath, { pathText: root.path, color: "gray" }),
-      ),
-    ),
-    hidden > 0 ? h(Text, { color: theme.color.fg.dim }, `${hidden} more selected roots`) : null,
+          { color: theme.color.state.warning },
+          "Removals happen last, after Saddle verifies the canonical copy and replacement links.",
+        )
+      : null,
   );
 }
 
-function PlanReview({ plan, height }) {
-  const visibleLimit = Math.max(4, height - 12);
-  const visibleActions = plan.actions.slice(0, visibleLimit);
-  const hidden = Math.max(0, plan.actions.length - visibleActions.length);
-  const counts = useMemo(() => {
-    const result = { import: 0, universal: 0, provider: 0, remove: 0 };
-    for (const action of plan.actions) {
-      if (action.type === "import") result.import += 1;
-      if (action.type === "link" && action.targetClass === "universal") result.universal += 1;
-      if (action.type === "link" && action.targetClass === "provider") result.provider += 1;
-      if (action.type === "remove-duplicate") result.remove += 1;
-    }
-    return result;
-  }, [plan.actions]);
+function ExecutionOrder({ plan, counts }) {
+  const steps = [
+    counts.import > 0
+      ? {
+          title: `Copy ${counts.import} ${counts.import === 1 ? "item" : "items"} into ${compactPath(plan.sourceRoot)}`,
+          detail: "Existing files stay in place while Saddle verifies each copy.",
+          tone: "magenta",
+        }
+      : null,
+    counts.link > 0
+      ? {
+          title: `Create ${counts.link} ${counts.link === 1 ? "symlink" : "symlinks"} from agent folders`,
+          detail: "Matching local entries become links to the canonical files.",
+          tone: "cyan",
+        }
+      : null,
+    counts.remove > 0
+      ? {
+          title: `Remove ${counts.remove} verified ${counts.remove === 1 ? "duplicate" : "duplicates"}`,
+          detail: "The canonical copy remains. Saddle removes only redundant entries.",
+          tone: "orange",
+        }
+      : null,
+  ].filter(Boolean);
 
   return h(
     Frame,
-    { title: "Review changes", color: "orange", flexGrow: 1 },
-    h(
+    { title: "How Saddle applies it", color: "cyan", flexGrow: 1 },
+    ...steps.flatMap((step, index) => [
+      h(
+        Box,
+        { key: `${step.title}-title`, columnGap: 1 },
+        h(Text, { color: palette[step.tone], bold: true }, `${index + 1}.`),
+        h(Text, { color: theme.color.fg.primary, bold: true }, step.title),
+      ),
+      h(
+        Box,
+        { key: `${step.title}-detail`, marginLeft: 3, marginBottom: 1 },
+        h(Text, { color: theme.color.fg.muted }, step.detail),
+      ),
+    ]),
+    h(Box, { flexGrow: 1 }),
+    h(Text, { color: theme.color.state.success }, "If a step fails, Saddle restores the earlier changes."),
+  );
+}
+
+function GroupPath({ group }) {
+  if (group.type === "remove-duplicate") {
+    return h(
       Box,
-      { columnGap: 1, flexWrap: "wrap", marginBottom: 1 },
-      counts.import > 0 ? h(TerminalTag, { tone: "magenta" }, `${counts.import} import`) : null,
-      counts.universal > 0 ? h(TerminalTag, { tone: "cyan" }, `${counts.universal} universal`) : null,
-      counts.provider > 0 ? h(TerminalTag, { tone: "blue" }, `${counts.provider} provider`) : null,
-      counts.remove > 0 ? h(TerminalTag, { tone: "orange" }, `${counts.remove} remove`) : null,
-      h(TerminalTag, { tone: "gray" }, `${plan.unchanged.length} unchanged`),
+      { marginLeft: 2, columnGap: 1 },
+      h(ShortPath, { pathText: compactPath(group.targetRoot), color: "gray" }),
+      h(Text, { color: theme.color.fg.dim }, "removed; canonical copy stays in"),
+      h(ShortPath, { pathText: compactPath(group.sourceRoot), color: "cyan" }),
+    );
+  }
+
+  return h(
+    Box,
+    { marginLeft: 2, columnGap: 1 },
+    h(ShortPath, { pathText: compactPath(group.sourceRoot), color: "gray" }),
+    h(Text, { color: theme.color.fg.dim }, "->"),
+    h(ShortPath, { pathText: compactPath(group.targetRoot), color: "cyan" }),
+  );
+}
+
+function LocationReview({ groups, selectedIndex, height, compact = false }) {
+  if (groups.length === 0) {
+    return h(
+      Frame,
+      { title: "Affected locations", color: "green", flexGrow: 1 },
+      h(StatusMessage, { variant: "success" }, "No files or links need to change."),
+    );
+  }
+
+  const selected = groups[selectedIndex];
+  if (compact) {
+    const firstAction = selected.actions[0];
+    return h(
+      Frame,
+      { title: "Affected locations", color: "orange", flexGrow: 1 },
+      h(Text, { color: theme.color.fg.dim }, `Path group ${selectedIndex + 1} of ${groups.length}`),
+      h(
+        Box,
+        { columnGap: 1 },
+        h(Text, { color: theme.color.accent.bright, bold: true }, ">"),
+        h(Text, { color: palette[toneByType[selected.type]], bold: true }, labelByType[selected.type]),
+        h(
+          Text,
+          { color: theme.color.fg.primary, bold: true },
+          `${selected.actions.length} ${pluralizeKind(selected.kind, selected.actions.length)}`,
+        ),
+        h(Text, { color: theme.color.fg.dim }, selected.tools.join(", ")),
+      ),
+      h(GroupPath, { group: selected }),
+      h(
+        Box,
+        { marginLeft: 2, columnGap: 1 },
+        h(Text, { color: theme.color.fg.muted }, "First file"),
+        h(Text, { color: theme.color.fg.primary, wrap: "truncate-end" }, path.basename(firstAction.target)),
+      ),
+      selected.actions.length > 1
+        ? h(Text, { color: theme.color.fg.dim, marginLeft: 2 }, `${selected.actions.length - 1} more in this group`)
+        : null,
+    );
+  }
+
+  const maxVisibleGroups = Math.max(2, Math.floor((height - 11) / 2));
+  const start = Math.min(
+    Math.max(0, selectedIndex - maxVisibleGroups + 1),
+    Math.max(0, groups.length - maxVisibleGroups),
+  );
+  const visibleGroups = groups.slice(start, start + maxVisibleGroups);
+  const detailLimit = Math.max(1, height - 11 - visibleGroups.length * 2);
+  const visibleActions = selected.actions.slice(0, detailLimit);
+
+  return h(
+    Frame,
+    { title: "Affected locations", color: "orange", flexGrow: 1 },
+    h(Text, { color: theme.color.fg.muted }, "Use Up/Down to inspect a path group."),
+    start > 0 ? h(Text, { color: theme.color.fg.dim }, `${start} groups above`) : null,
+    ...visibleGroups.flatMap((group, visibleIndex) => {
+      const index = start + visibleIndex;
+      const active = index === selectedIndex;
+      return [
+        h(
+          Box,
+          { key: `${group.id}-label`, columnGap: 1 },
+          h(Text, { color: active ? theme.color.accent.bright : theme.color.fg.dim, bold: active }, active ? ">" : " "),
+          h(
+            Text,
+            { color: palette[toneByType[group.type]], bold: true },
+            labelByType[group.type],
+          ),
+          h(
+            Text,
+            { color: active ? theme.color.fg.primary : theme.color.fg.secondary, bold: active },
+            `${group.actions.length} ${pluralizeKind(group.kind, group.actions.length)}`,
+          ),
+          h(Text, { color: theme.color.fg.dim }, group.tools.join(", ")),
+        ),
+        h(GroupPath, { key: `${group.id}-path`, group }),
+      ];
+    }),
+    start + visibleGroups.length < groups.length
+      ? h(Text, { color: theme.color.fg.dim }, `${groups.length - start - visibleGroups.length} groups below`)
+      : null,
+    h(Box, { marginTop: 1, columnGap: 1 },
+      h(Text, { color: theme.color.fg.primary, bold: true }, "Exact files"),
+      h(Text, { color: theme.color.fg.dim }, `${selected.actions.length} in selected group`),
     ),
     ...visibleActions.map((action) =>
       h(
         Box,
-        { key: action.id, height: 1, justifyContent: "space-between", columnGap: 2 },
-        h(
-          Box,
-          { minWidth: 0, columnGap: 1 },
-          h(Text, { color: theme.color.fg.primary }, path.basename(action.target)),
-          h(Text, { color: theme.color.fg.dim }, action.tools.join(", ")),
-        ),
-        h(
-          Box,
-          { flexShrink: 0, columnGap: 1 },
-          action.type === "link" ? h(Text, { color: theme.color.fg.muted }, action.targetClass.toUpperCase()) : null,
-          h(
-            Text,
-            { color: palette[toneByType[action.type]] || theme.color.accent.primary, bold: true },
-            labelByType[action.type] || action.type.toUpperCase(),
-          ),
-        ),
+        { key: action.id, marginLeft: 2, justifyContent: "space-between", columnGap: 2 },
+        h(Text, { color: theme.color.fg.primary, wrap: "truncate-end" }, path.basename(action.target)),
+        h(Text, { color: theme.color.fg.dim, flexShrink: 0 }, action.kind),
       ),
     ),
-    hidden > 0 ? h(Text, { color: theme.color.fg.dim }, `${hidden} more actions`) : null,
-    h(Box, { flexGrow: 1 }),
-    h(
-      Box,
-      {
-        borderStyle: "single",
-        borderColor: theme.color.accent.primary,
-        justifyContent: "center",
-        paddingX: 1,
-      },
-      h(
-        Text,
-        { color: theme.color.accent.bright, bold: true },
-        "Enter applies this plan. Esc cancels without writing.",
-      ),
-    ),
+    selected.actions.length > visibleActions.length
+      ? h(Text, { color: theme.color.fg.dim, marginLeft: 2 }, `${selected.actions.length - visibleActions.length} more files`)
+      : null,
   );
 }
 
@@ -218,18 +381,28 @@ function ApplyProgress({ plan, completed, current, error, done }) {
 export function ReorgApp({ plan, applyReorgPlan, onFinish }) {
   const { exit } = useApp();
   const [stage, setStage] = useState(plan.conflicts.length > 0 ? "conflicts" : "review");
+  const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
   const [completed, setCompleted] = useState(0);
   const [current, setCurrent] = useState(null);
   const [done, setDone] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const startedRef = useRef(false);
-  const height = Math.max(18, (process.stdout.rows || 24) - 4);
+  const terminalHeight = process.stdout.rows || 24;
   const width = process.stdout.columns || 100;
+  const compact = width < 100 || terminalHeight < 30;
+  const reviewHeight = compact ? Math.max(9, terminalHeight - 14) : Math.max(9, terminalHeight - 15);
   const gap = 1;
   const availableWidth = Math.max(27, width - gap - 2);
-  const leftWidth = Math.max(12, Math.floor(availableWidth * 0.36));
+  const leftWidth = Math.max(12, Math.floor(availableWidth * 0.38));
   const rightWidth = Math.max(12, availableWidth - leftWidth);
+  const counts = useMemo(() => countPlanActions(plan.actions), [plan.actions]);
+  const groups = useMemo(() => buildChangeGroups(plan.actions), [plan.actions]);
+
+  useEffect(() => {
+    if (groups.length === 0) return;
+    if (selectedGroupIndex >= groups.length) setSelectedGroupIndex(groups.length - 1);
+  }, [groups, selectedGroupIndex]);
 
   useInput((input, key) => {
     const requestedExit = key.escape || input === "q" || (key.ctrl && input === "c");
@@ -242,7 +415,22 @@ export function ReorgApp({ plan, applyReorgPlan, onFinish }) {
       return;
     }
     if (stage === "review") {
-      if (key.return) setStage("apply");
+      if (key.upArrow && groups.length > 0) {
+        setSelectedGroupIndex((current) => Math.max(0, current - 1));
+        return;
+      }
+      if (key.downArrow && groups.length > 0) {
+        setSelectedGroupIndex((current) => Math.min(groups.length - 1, current + 1));
+        return;
+      }
+      if (key.return) {
+        if (plan.actions.length === 0) {
+          onFinish({ applied: false, unchanged: true });
+          exit();
+        } else {
+          setStage("apply");
+        }
+      }
       if (requestedExit) {
         onFinish({ applied: false });
         exit();
@@ -299,16 +487,49 @@ export function ReorgApp({ plan, applyReorgPlan, onFinish }) {
       h(ShortPath, { pathText: plan.sourceRoot, color: "cyan" }),
     ),
     stage === "review" || stage === "conflicts"
-      ? h(
-          Box,
-          { height, columnGap: gap },
-          h(Box, { width: leftWidth }, h(StrategySummary, { plan, height })),
-          h(
+      ? stage === "conflicts"
+        ? h(Box, { height: Math.max(18, terminalHeight - 4) }, h(ConflictReview, { plan, height: terminalHeight - 4 }))
+        : h(
             Box,
-            { width: rightWidth },
-            stage === "conflicts" ? h(ConflictReview, { plan, height }) : h(PlanReview, { plan, height }),
-          ),
-        )
-      : h(Box, { height }, h(ApplyProgress, { plan, completed, current, error, done })),
+            { flexDirection: "column" },
+            h(Box, { marginBottom: 1 }, h(OutcomeSummary, { plan, counts, compact })),
+            compact
+              ? h(
+                  Box,
+                  { height: reviewHeight },
+                  h(LocationReview, { groups, selectedIndex: selectedGroupIndex, height: reviewHeight, compact: true }),
+                )
+              : h(
+                  Box,
+                  { height: reviewHeight, columnGap: gap },
+                  h(Box, { width: leftWidth }, h(ExecutionOrder, { plan, counts })),
+                  h(
+                    Box,
+                    { width: rightWidth },
+                    h(LocationReview, { groups, selectedIndex: selectedGroupIndex, height: reviewHeight }),
+                  ),
+                ),
+            h(
+              Box,
+              {
+                borderStyle: "single",
+                borderColor: plan.actions.length > 0 ? theme.color.accent.primary : theme.color.state.success,
+                justifyContent: "space-between",
+                paddingX: 1,
+              },
+              h(
+                Text,
+                { color: plan.actions.length > 0 ? theme.color.accent.bright : theme.color.state.success, bold: true },
+                plan.actions.length > 0 ? `Enter  Apply ${plan.actions.length} changes` : "Enter  Exit",
+              ),
+              groups.length > 1 ? h(Text, { color: theme.color.fg.muted }, "Up/Down  Inspect") : null,
+              h(Text, { color: theme.color.fg.muted }, "Esc  Cancel without changes"),
+            ),
+          )
+      : h(
+          Box,
+          { height: Math.max(18, terminalHeight - 4) },
+          h(ApplyProgress, { plan, completed, current, error, done }),
+        ),
   );
 }

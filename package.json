@@ -40,7 +40,7 @@
     "lint:agents": "bash ./scripts/agent-lint.sh",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test tests/load-config.test.js tests/install-core.test.js tests/reorg-core.test.js tests/format.test.mjs",
+    "test": "node --test tests/load-config.test.js tests/install-core.test.js tests/reorg-core.test.js tests/reorg-ui.test.mjs tests/format.test.mjs",
     "prepare": "husky || true"
   },
   "engines": {
