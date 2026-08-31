@@ -64,6 +64,19 @@ function pathsOverlap(leftPath, rightPath) {
   return left === right || left.startsWith(`${right}${path.sep}`) || right.startsWith(`${left}${path.sep}`);
 }
 
+function isCanonicalCollectionAlias(endpointPath, canonicalPath) {
+  if (!pathExists(endpointPath)) return false;
+
+  const stat = fs.lstatSync(endpointPath);
+  if (!stat.isSymbolicLink()) return false;
+
+  try {
+    return fs.realpathSync.native(endpointPath) === resolveThroughExistingAncestor(canonicalPath);
+  } catch {
+    return false;
+  }
+}
+
 function resolveContentPath(entryPath) {
   const stat = fs.lstatSync(entryPath);
   return stat.isSymbolicLink() ? fs.realpathSync(entryPath) : entryPath;
@@ -216,7 +229,8 @@ function scanReorg({ rules, detection = {}, sourceRoot, expandHome }) {
         const expandedPath = expandHome(location.path);
         if (!expandedPath) continue;
         const resolvedEndpointPath = path.resolve(expandedPath);
-        if (pathsOverlap(resolvedSourceRoot, resolvedEndpointPath)) {
+        const canonicalAlias = isCanonicalCollectionAlias(resolvedEndpointPath, canonicalPath);
+        if (!canonicalAlias && pathsOverlap(resolvedSourceRoot, resolvedEndpointPath)) {
           throw new Error(
             `Source root overlaps a managed harness location: ${resolvedSourceRoot} and ${resolvedEndpointPath}`,
           );
@@ -233,6 +247,7 @@ function scanReorg({ rules, detection = {}, sourceRoot, expandHome }) {
           entries: asset.entries,
           path: resolvedEndpointPath,
           targetClass: location.targetClass,
+          canonicalAlias,
           tools: [rule.name],
           toolLabels: [rule.label],
           installed,
@@ -361,6 +376,7 @@ function buildReorgPlan({ scan, strategy = "universal-first" }) {
     for (const name of Array.from(names).sort()) {
       const canonicalItem = canonicalItems.get(name) || null;
       const occurrences = collectionEndpoints.flatMap((endpoint) => {
+        if (endpoint.canonicalAlias) return [];
         const item = endpoint.items.find((candidate) => candidate.name === name);
         return item ? [{ endpoint, item }] : [];
       });
@@ -422,6 +438,19 @@ function buildReorgPlan({ scan, strategy = "universal-first" }) {
 
       for (const endpoint of selectedEndpoints) {
         const target = path.join(endpoint.path, name);
+        if (endpoint.canonicalAlias) {
+          if (canonicalItem) {
+            unchanged.push({
+              kind: collection.kind,
+              name,
+              target,
+              source: canonicalTarget,
+              targetClass: endpoint.targetClass,
+              tools: endpoint.tools,
+            });
+          }
+          continue;
+        }
         const existing = endpoint.items.find((item) => item.name === name) || null;
         if (pointsTo(target, canonicalTarget)) {
           unchanged.push({
@@ -462,6 +491,7 @@ function buildReorgPlan({ scan, strategy = "universal-first" }) {
       }
 
       for (const endpoint of suppressedEndpoints) {
+        if (endpoint.canonicalAlias) continue;
         const existing = endpoint.items.find((item) => item.name === name);
         if (!existing || selectedEndpoints.some((selectedEndpoint) => selectedEndpoint.path === endpoint.path))
           continue;

@@ -26,6 +26,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Bundled reorganization metadata is merged into older user-copied provider rules without overwriting custom sync mappings
 - Dry-run, JSON, check, and rejected TUI plans do not initialize Saddle config or state
 
+### Fixed
+
+- Managed collection symlinks that already point to their canonical collection no longer trigger a false overlap error or risk changes through the alias
+
 ### Security
 
 - Canonical paths are constrained to the selected source root, overlapping managed roots are rejected, and rule locations fail closed on malformed classifications

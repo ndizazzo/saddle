@@ -320,6 +320,39 @@ describe("reorganization core", () => {
     );
   });
 
+  it("accepts a managed collection symlink that already points to its canonical collection", () => {
+    writeSkill(path.join(sourceRoot, "skills"), "review");
+    mkdir(path.dirname(universalRoot));
+    fs.symlinkSync(path.join(sourceRoot, "skills"), universalRoot);
+
+    const plan = buildReorgPlan({ scan: scan(), strategy: "universal-first" });
+
+    assert.strictEqual(plan.conflicts.length, 0);
+    assert.ok(!plan.actions.some((action) => action.target.startsWith(universalRoot)));
+    assert.ok(plan.unchanged.some((item) => item.target === path.join(universalRoot, "review")));
+  });
+
+  it("does not remove canonical content through a suppressed collection alias", async () => {
+    writeSkill(path.join(sourceRoot, "skills"), "review");
+    mkdir(path.dirname(universalRoot));
+    fs.symlinkSync(path.join(sourceRoot, "skills"), universalRoot);
+
+    const plan = buildReorgPlan({ scan: scan(), strategy: "provider-only" });
+    assert.ok(!plan.actions.some((action) => action.type === "remove-duplicate" && action.target.startsWith(universalRoot)));
+
+    await applyReorgPlan(plan, { configDir: transactionRoot });
+    assert.ok(fs.statSync(path.join(sourceRoot, "skills", "review")).isDirectory());
+    assert.ok(fs.lstatSync(universalRoot).isSymbolicLink());
+  });
+
+  it("rejects a managed collection symlink into the wrong canonical directory", () => {
+    mkdir(path.join(sourceRoot, "other-skills"));
+    mkdir(path.dirname(universalRoot));
+    fs.symlinkSync(path.join(sourceRoot, "other-skills"), universalRoot);
+
+    assert.throws(() => scan(), /overlaps a managed harness location/);
+  });
+
   it("rejects canonical collections that escape the source root through a symlink", () => {
     mkdir(sourceRoot);
     const externalSkills = path.join(root, "external-skills");
