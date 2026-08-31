@@ -1,3 +1,4 @@
+schemaVersion: 2
 tool: oh-my-openagent
 label: Oh My Openagent
 home: ~/.config/opencode

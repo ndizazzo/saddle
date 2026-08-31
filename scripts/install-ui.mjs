@@ -1,1 +1,1 @@
-export { runInkInstaller } from "./tui/index.mjs";
+export { runInkInstaller, runInkReorg } from "./tui/index.mjs";

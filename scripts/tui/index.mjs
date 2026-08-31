@@ -1,8 +1,8 @@
-
 import { render } from "ink";
 import { ThemeProvider } from "@inkjs/ui";
 import { uiTheme } from "./theme/index.mjs";
 import { InstallerApp } from "./App.mjs";
+import { ReorgApp } from "./ReorgApp.mjs";
 import { h } from "./ui/react-helpers.mjs";
 
 function createForcedColorStdout(stdout) {
@@ -26,7 +26,17 @@ function createForcedColorStdout(stdout) {
   });
 }
 
-export async function runInkInstaller({ profiles, options, initialSelectedIds, runInstallation, inspectProfile, buildInspectionCache, sourceRoot, configPath, writeSourceRoot }) {
+export async function runInkInstaller({
+  profiles,
+  options,
+  initialSelectedIds,
+  runInstallation,
+  inspectProfile,
+  buildInspectionCache,
+  sourceRoot,
+  configPath,
+  writeSourceRoot,
+}) {
   process.env.FORCE_COLOR = process.env.FORCE_COLOR || "3";
   const stdout = createForcedColorStdout(process.stdout);
 
@@ -49,6 +59,28 @@ export async function runInkInstaller({ profiles, options, initialSelectedIds, r
         }),
       ),
       { exitOnCtrlC: true, stdout, incrementalRendering: true },
+    );
+
+    instance.waitUntilExit().catch(reject);
+  });
+}
+
+export async function runInkReorg({ plan, applyReorgPlan }) {
+  process.env.FORCE_COLOR = process.env.FORCE_COLOR || "3";
+  const stdout = createForcedColorStdout(process.stdout);
+
+  return await new Promise((resolve, reject) => {
+    const instance = render(
+      h(
+        ThemeProvider,
+        { theme: uiTheme },
+        h(ReorgApp, {
+          plan,
+          applyReorgPlan,
+          onFinish: resolve,
+        }),
+      ),
+      { exitOnCtrlC: false, stdout, incrementalRendering: true },
     );
 
     instance.waitUntilExit().catch(reject);

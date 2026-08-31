@@ -111,19 +111,18 @@ function commandExists(name) {
   return result.status === 0;
 }
 
-function binaryDetected(binary) {
+function binaryDetected(binary, expandHome = getConfig().expandHome) {
   if (!binary) return false;
   if (binary.which && commandExists(binary.which)) return true;
   const platformPath = binary.paths && binary.paths[process.platform];
   if (platformPath) {
-    const expanded = getConfig().expandHome(platformPath);
+    const expanded = expandHome(platformPath);
     if (expanded && fileExists(expanded)) return true;
   }
   return false;
 }
 
-function detectInstalledTools() {
-  const config = getConfig();
+function detectInstalledTools(config = getConfig()) {
   const detection = {};
 
   for (const rule of config.rules) {
@@ -133,7 +132,7 @@ function detectInstalledTools() {
     }
     const expandedHome = rule.home ? config.expandHome(rule.home) : null;
     const homeFound = expandedHome ? fileExists(expandedHome) : false;
-    detection[rule.name] = homeFound || binaryDetected(rule.binary);
+    detection[rule.name] = homeFound || binaryDetected(rule.binary, config.expandHome);
   }
 
   return detection;
@@ -362,11 +361,11 @@ function profileDescriptionForMapping(mapping, targetHome) {
   return `Links to ${profileTargetPath(mapping, targetHome)}`;
 }
 
-function discoverProfiles(repoRoot = getDefaultRepoRoot(), detection = null) {
+function discoverProfiles(repoRoot = getDefaultRepoRoot(), detection = null, config = getConfig()) {
   const profiles = [];
 
-  for (const rule of getConfig().rules) {
-    const targetHome = getConfig().expandHome(rule.home);
+  for (const rule of config.rules) {
+    const targetHome = config.expandHome(rule.home);
     if (!targetHome) continue;
 
     const isInstalled = detection ? detection[rule.name] !== false : true;
@@ -497,11 +496,17 @@ function parseArgs(argv) {
 }
 
 function printUsage(profiles) {
+  console.log("Usage:");
   console.log(
-    "Usage: saddle [--dry-run] [--uninstall] [--check] [--yes] [--all] [--profile id1,id2] [--list] [--verbose] [--quiet]",
+    "  saddle [--dry-run] [--uninstall] [--check] [--yes] [--all] [--profile id1,id2] [--list] [--verbose] [--quiet]",
   );
+  console.log("  saddle reorg [--source path] [--strategy value] [--dry-run] [--check] [--yes]");
   console.log("");
-  console.log("Interactive Ink UI by default when running in a TTY.");
+  console.log("Commands:");
+  console.log("  sync         Link selected definitions from an existing canonical source (default)");
+  console.log("  reorg        Import scattered agent definitions, then unify their symlinks");
+  console.log("");
+  console.log("The interactive Ink UI is used by default in a TTY.");
   console.log("");
   console.log("Flags:");
   console.log("  --dry-run    Preview changes without writing to disk");
@@ -919,7 +924,7 @@ async function runUninstall(options) {
   process.stdout.write(`\nUninstall complete: ${removed} removed, ${skipped} skipped, ${missing} missing\n`);
 }
 
-async function runCheck(options, _config) {
+async function runCheck(options, config = getConfig()) {
   const lockfile = readLockfile();
 
   let linksToCheck;
@@ -930,7 +935,7 @@ async function runCheck(options, _config) {
       linksToCheck = linksToCheck.filter((l) => options.profileIds.includes(l.profileId));
     }
   } else {
-    const profiles = discoverProfiles();
+    const profiles = discoverProfiles(config.sourceRoot, null, config);
     linksToCheck = [];
     for (const profile of profiles) {
       for (const action of profile.actions) {

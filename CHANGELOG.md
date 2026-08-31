@@ -7,6 +7,37 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.10.0] — 2026-08-30
+
+### Added
+
+- `saddle reorg` one-shot migration command with interactive review, `--dry-run`, `--json`, `--check`, and headless `--yes` modes
+- Configurable canonical roots through `--source`, `SADDLE_SOURCE_ROOT`, or `sourceRoot` in `config.yaml`; new installations no longer assume `~/dev/ai`
+- Mutually exclusive `universal-first` and `provider-only` routing strategies
+- Version 2 provider-rule schema for rule-based discovery of skills, agents, and commands
+- Transaction manifests, verified imports and links, precondition checks, and automatic rollback on apply failure
+- Idempotent drift planning: repeat runs are empty when clean and include only newly diverged items
+- Reorganization rules for Claude Code, Codex, Copilot, Cursor, Gemini, Goose, OpenCode, and Reasonix (the supported DeepSeek coding harness)
+
+### Changed
+
+- Codex skill sync now targets the shared `~/.agents/skills` location
+- Copilot detection now uses the standalone `copilot` CLI; skills support both current personal roots and the unsupported `~/.copilot/commands` mapping has been removed
+- Bundled reorganization metadata is merged into older user-copied provider rules without overwriting custom sync mappings
+- Dry-run, JSON, check, and rejected TUI plans do not initialize Saddle config or state
+- The reorganization review now maps the canonical source to installed-agent destination blocks, dims paths already in place, and highlights links or cleanup still required
+
+### Fixed
+
+- Managed collection symlinks that already point to their canonical collection no longer trigger a false overlap error or risk changes through the alias
+
+### Security
+
+- Canonical paths are constrained to the selected source root, overlapping managed roots are rejected, and rule locations fail closed on malformed classifications
+- Apply validates the complete plan before writing and revalidates each target immediately before mutation
+
+---
+
 ## [0.9.3] — 2026-04-08
 
 ### Changed

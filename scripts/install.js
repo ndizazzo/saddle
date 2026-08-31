@@ -7,7 +7,6 @@ const readline = require("readline/promises");
 const { version } = require("../package.json");
 const {
   buildInspectionCache,
-  getDefaultRepoRoot,
   detectInstalledTools,
   discoverProfiles,
   inspectProfile,
@@ -52,13 +51,15 @@ async function handleInvalidConfig(configError) {
 }
 
 async function runPlainInstaller({ profiles, options, initialSelectedIds, sourceRoot }) {
-  const selectedIds = initialSelectedIds || (() => {
-    if (!process.stdin.isTTY) {
-      throw new Error("No profile selection provided. Re-run with --all or --profile in non-interactive mode.");
-    }
+  const selectedIds =
+    initialSelectedIds ||
+    (() => {
+      if (!process.stdin.isTTY) {
+        throw new Error("No profile selection provided. Re-run with --all or --profile in non-interactive mode.");
+      }
 
-    return profiles.filter((profile) => profile.recommended && !profile.informational).map((profile) => profile.id);
-  })();
+      return profiles.filter((profile) => profile.recommended && !profile.informational).map((profile) => profile.id);
+    })();
 
   const unknownProfiles = selectedIds.filter((id) => !profiles.some((profile) => profile.id === id));
   if (unknownProfiles.length > 0) {
@@ -76,7 +77,9 @@ async function runPlainInstaller({ profiles, options, initialSelectedIds, source
     console.log("");
     console.log("Selected profiles:");
     for (const profile of selectedProfiles) {
-      console.log(`- ${standaloneProfileLabel(profile)} (${profile.actions.length} link${profile.actions.length === 1 ? "" : "s"})`);
+      console.log(
+        `- ${standaloneProfileLabel(profile)} (${profile.actions.length} link${profile.actions.length === 1 ? "" : "s"})`,
+      );
     }
     console.log("");
 
@@ -179,6 +182,24 @@ async function runPlainInstaller({ profiles, options, initialSelectedIds, source
 }
 
 async function main(argv) {
+  if (argv[0] === "reorg") {
+    const config = loadConfig(null, { initialize: false });
+    if (config.configError) {
+      const choice = await handleInvalidConfig(config.configError);
+      if (choice === "exit") {
+        process.exit(0);
+      }
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").replace(/Z$/, "");
+      const backupPath = `${CONFIG_PATH}.bak.${timestamp}`;
+      fs.renameSync(CONFIG_PATH, backupPath);
+      writeDefaultConfig();
+      process.stdout.write(`Backed up to ${backupPath}\nRestored defaults.\n\n`);
+    }
+    const { runReorg } = require("./reorg.js");
+    await runReorg(argv, loadConfig(null, { initialize: false }));
+    return;
+  }
+
   const options = parseArgs(argv);
 
   if (options.version) {
@@ -186,8 +207,18 @@ async function main(argv) {
     return;
   }
 
-  const config = loadConfig(getDefaultRepoRoot());
-  const { configError, sourceRoot } = config;
+  if (options.help) {
+    printUsage([]);
+    return;
+  }
+
+  if (options.uninstall) {
+    await runUninstall(options);
+    return;
+  }
+
+  let config = loadConfig(null);
+  let { configError, sourceRoot } = config;
   if (sourceRoot && !fs.existsSync(sourceRoot)) {
     process.stderr.write(`Warning: source root ${sourceRoot} does not exist. Profiles may be empty.\n`);
   }
@@ -201,23 +232,34 @@ async function main(argv) {
     fs.renameSync(CONFIG_PATH, backupPath);
     writeDefaultConfig();
     process.stdout.write(`Backed up to ${backupPath}\nRestored defaults.\n\n`);
+    config = loadConfig(null);
+    sourceRoot = config.sourceRoot;
+    configError = config.configError;
   }
 
-  const detection = detectInstalledTools();
-  const profiles = discoverProfiles(undefined, detection);
+  if (!sourceRoot) {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      throw new Error(`No source root configured. Set sourceRoot in ${CONFIG_PATH} or use SADDLE_SOURCE_ROOT.`);
+    }
 
-  if (options.help) {
-    printUsage(profiles);
-    return;
+    const suggested = `${process.env.HOME || "~"}/.config/saddle/shared`;
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      const answer = (await rl.question(`Canonical source root [${suggested}]: `)).trim();
+      sourceRoot = answer || suggested;
+    } finally {
+      rl.close();
+    }
+    writeSourceRoot(sourceRoot);
+    config = loadConfig(null);
+    sourceRoot = config.sourceRoot;
   }
+
+  const detection = detectInstalledTools(config);
+  const profiles = discoverProfiles(sourceRoot, detection, config);
 
   if (options.listOnly) {
     printProfiles(profiles);
-    return;
-  }
-
-  if (options.uninstall) {
-    await runUninstall(options);
     return;
   }
 
@@ -241,7 +283,7 @@ async function main(argv) {
       runInstallation,
       inspectProfile,
       buildInspectionCache,
-      sourceRoot: getDefaultRepoRoot(),
+      sourceRoot,
       configPath: CONFIG_PATH,
       writeSourceRoot,
     });

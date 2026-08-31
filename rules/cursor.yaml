@@ -1,3 +1,4 @@
+schemaVersion: 2
 tool: cursor
 label: Cursor
 binary:
@@ -7,6 +8,29 @@ binary:
 home: ~/.cursor
 enabled: true
 mode: multi-select
+
+reorg:
+  assets:
+    - kind: skill
+      canonical: skills
+      entries: directories
+      locations:
+        - path: ~/.agents/skills
+          targetClass: universal
+        - path: ~/.cursor/skills
+          targetClass: provider
+    - kind: agent
+      canonical: agents/cursor
+      entries: files
+      locations:
+        - path: ~/.cursor/agents
+          targetClass: provider
+    - kind: command
+      canonical: commands/cursor
+      entries: files
+      locations:
+        - path: ~/.cursor/commands
+          targetClass: provider
 
 mappings:
   - type: skills
